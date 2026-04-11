@@ -1,0 +1,176 @@
+import { ArrowLeft, ShoppingBag, ShoppingCart, Package } from "lucide-react";
+import { useNavigate, useLocation } from "react-router-dom";
+import { useState, useEffect } from "react";
+
+interface Product {
+  id: string;
+  name: string;
+  price: number;
+  stock: number;
+  categoryId: string;
+  image: string;
+  description: string;
+  createdAt: string;
+}
+
+interface Category {
+  id: string;
+  name: string;
+  createdAt: string;
+}
+
+const CatalogoRopa = () => {
+  const navigate = useNavigate();
+  const location = useLocation();
+  const [products, setProducts] = useState<Product[]>([]);
+  const [category, setCategory] = useState<Category | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    loadData();
+  }, []);
+
+  const loadData = async () => {
+    try {
+      // Get categoryId from navigation state or find "Ropa Urbana" category
+      let targetCategoryId = location.state?.categoryId;
+      
+      if (!targetCategoryId) {
+        // Load categories and find "Ropa Urbana"
+        const storedCategories = localStorage.getItem("categories");
+        if (storedCategories) {
+          const categories: Category[] = JSON.parse(storedCategories);
+          const ropaCategory = categories.find(c => c.name === "Ropa Urbana");
+          targetCategoryId = ropaCategory?.id;
+          setCategory(ropaCategory || null);
+        }
+      }
+
+      if (targetCategoryId) {
+        // Load products filtered by categoryId
+        const storedProducts = localStorage.getItem("products");
+        if (storedProducts) {
+          const allProducts: Product[] = JSON.parse(storedProducts);
+          const filteredProducts = allProducts.filter(p => p.categoryId === targetCategoryId);
+          setProducts(filteredProducts);
+        }
+      }
+    } catch (error) {
+      // Error logged silently for production security
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const addToCart = (product: Product) => {
+    // Add to cart logic
+    const cartItem = {
+      productId: product.id,
+      name: product.name,
+      price: product.price,
+      quantity: 1,
+      image: product.image
+    };
+
+    const existingCart = localStorage.getItem("cart");
+    const cart = existingCart ? JSON.parse(existingCart) : [];
+    
+    const existingItemIndex = cart.findIndex((item: any) => item.productId === product.id);
+    if (existingItemIndex >= 0) {
+      cart[existingItemIndex].quantity += 1;
+    } else {
+      cart.push(cartItem);
+    }
+    
+    localStorage.setItem("cart", JSON.stringify(cart));
+    window.dispatchEvent(new CustomEvent('cart-updated'));
+    navigate("/checkout");
+  };
+
+  return (
+    <div className="min-h-screen bg-background">
+      {/* Header */}
+      <div className="bg-secondary/30 py-8">
+        <div className="container mx-auto px-4">
+          <button
+            onClick={() => navigate("/#tienda")}
+            className="flex items-center gap-2 text-muted-foreground hover:text-foreground mb-4 transition-colors"
+          >
+            <ArrowLeft className="h-4 w-4" />
+            Volver a Tienda
+          </button>
+          <h1 className="text-4xl md:text-5xl font-heading font-bold mb-4">Ropa Urbana</h1>
+          <p className="text-muted-foreground text-lg max-w-2xl">
+            Descubre nuestra colección de ropa urbana con los últimos trends del streetwear.
+          </p>
+        </div>
+      </div>
+
+      {/* Products Grid */}
+      <div className="container mx-auto px-4 py-12">
+        {loading ? (
+          <div className="text-center py-12">
+            <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+            <p className="mt-2 text-muted-foreground">Cargando productos...</p>
+          </div>
+        ) : products.length > 0 ? (
+          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
+            {products.map((product) => (
+              <div key={product.id} className="bg-card border border-card-border rounded-xl overflow-hidden group">
+                <div className="relative h-64 overflow-hidden">
+                  <img 
+                    src={product.image} 
+                    alt={product.name} 
+                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" 
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+                  <div className="absolute bottom-4 left-4 right-4 text-white opacity-0 group-hover:opacity-100 transition-opacity">
+                    <p className="text-sm font-semibold">${product.price}</p>
+                  </div>
+                  {/* Stock Status Badge */}
+                  <div className="absolute top-4 right-4">
+                    {product.stock > 0 ? (
+                      <span className="bg-green-500 text-white text-xs px-2 py-1 rounded-full font-semibold">
+                        EN STOCK
+                      </span>
+                    ) : (
+                      <span className="bg-red-500 text-white text-xs px-2 py-1 rounded-full font-semibold">
+                        SIN STOCK
+                      </span>
+                    )}
+                  </div>
+                </div>
+                <div className="p-6">
+                  <h3 className="font-heading font-bold text-xl mb-2">{product.name}</h3>
+                  <p className="text-muted-foreground text-sm mb-4">{product.description}</p>
+                  <div className="flex gap-2">
+                    <button 
+                      className={`flex-1 py-2 rounded-lg font-semibold transition-opacity flex items-center justify-center gap-2 ${
+                        product.stock > 0
+                          ? 'bg-primary text-primary-foreground hover:opacity-90' 
+                          : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                      }`}
+                      onClick={() => product.stock > 0 && addToCart(product)}
+                      disabled={product.stock === 0}
+                    >
+                      <ShoppingCart className="h-4 w-4" />
+                      {product.stock > 0 ? 'Agregar al Carrito' : 'No Disponible'}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="text-center py-12">
+            <Package className="h-16 w-16 text-muted-foreground mx-auto mb-4" />
+            <h3 className="text-xl font-semibold mb-2">No hay productos disponibles</h3>
+            <p className="text-muted-foreground">Pronto agregaremos nuevos productos a esta categoría.</p>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
+
+export default CatalogoRopa;
