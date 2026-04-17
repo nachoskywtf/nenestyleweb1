@@ -96,6 +96,25 @@ export const firebaseService = {
     } catch (error) {
       console.error('Error saving availability to Firebase:', error);
     }
+  },
+
+  // Cart
+  getCart: async () => {
+    try {
+      const snapshot = await get(ref(db, 'cart'));
+      return snapshot.exists() ? snapshot.val() : [];
+    } catch (error) {
+      console.error('Error fetching cart from Firebase:', error);
+      return [];
+    }
+  },
+
+  setCart: async (cart: any) => {
+    try {
+      await set(ref(db, 'cart'), cart);
+    } catch (error) {
+      console.error('Error saving cart to Firebase:', error);
+    }
   }
 };
 

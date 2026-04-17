@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { createPortal } from "react-dom";
 import { ShoppingCart, X, Plus, Minus, Trash2, ArrowRight } from "lucide-react";
 import { formatCLP } from "../utils/currency";
+import { firebaseService } from "../services/firebaseService";
 
 interface CartItem {
   productId: string;
@@ -18,7 +19,7 @@ const Cart = () => {
   const [total, setTotal] = useState(0);
   const [itemCount, setItemCount] = useState(0);
 
-  // Load cart from localStorage on mount
+  // Load cart from Firebase on mount
   useEffect(() => {
     loadCart();
   }, []);
@@ -35,16 +36,24 @@ const Cart = () => {
     updateCartDisplay();
   }, [cart]);
 
-  const loadCart = () => {
-    const storedCart = localStorage.getItem("cart");
-    if (storedCart) {
-      setCart(JSON.parse(storedCart));
+  const loadCart = async () => {
+    try {
+      const storedCart = await firebaseService.getCart();
+      if (storedCart && storedCart.length > 0) {
+        setCart(storedCart);
+      }
+    } catch (err) {
+      console.error('Error loading cart:', err);
     }
   };
 
-  const saveCart = () => {
-    localStorage.setItem("cart", JSON.stringify(cart));
-    window.dispatchEvent(new CustomEvent('cart-updated'));
+  const saveCart = async () => {
+    try {
+      await firebaseService.setCart(cart);
+      window.dispatchEvent(new CustomEvent('cart-updated'));
+    } catch (err) {
+      console.error('Error saving cart:', err);
+    }
   };
 
   const updateCartDisplay = () => {
@@ -79,14 +88,14 @@ const Cart = () => {
     setIsOpen(true);
   };
 
-  const changeQuantity = (productId: string, selectedSize: string | undefined, change: number) => {
+  const changeQuantity = async (productId: string, selectedSize: string | undefined, change: number) => {
     // Load products to check stock
-    const storedProducts = localStorage.getItem("products");
-    if (!storedProducts) {
+    const storedProducts = await firebaseService.getProducts();
+    if (!storedProducts || storedProducts.length === 0) {
       return;
     }
 
-    const products = JSON.parse(storedProducts);
+    const products = storedProducts;
     const product = products.find((p: any) => p.id === productId);
 
     if (!product) {
