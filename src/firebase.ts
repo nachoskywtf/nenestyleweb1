@@ -1,4 +1,6 @@
+// @ts-ignore - Firebase types
 import { initializeApp } from "firebase/app";
+// @ts-ignore - Firebase types
 import { getDatabase, ref, set, get, update, remove, onValue } from "firebase/database";
 
 const firebaseConfig = {
