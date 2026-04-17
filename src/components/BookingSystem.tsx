@@ -1,7 +1,6 @@
 import { useState, useEffect, useMemo } from "react";
 import { Check, ChevronLeft, ChevronRight, MessageCircle } from "lucide-react";
 import { validateInput, isValidChileanPhone, isValidEmail } from "../utils/sanitization";
-import { supabaseService } from "../services/supabaseService";
 
 // Types
 interface FormData {
@@ -69,35 +68,19 @@ const BookingSystem = () => {
   const [bookedSlots, setBookedSlots] = useState<Record<string, string[]>>({});
   const [step, setStep] = useState(1);
   const [formData, setFormData] = useState<FormData>({ name: "", phone: "", email: "", notes: "" });
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
 
-  // Load booked slots from Supabase with real-time sync
+  // Load booked slots from localStorage
   useEffect(() => {
-    const loadSlots = async () => {
-      try {
-        setLoading(true);
-        const days = getWeekDays(currentWeekStart);
-        const loaded: Record<string, string[]> = {};
-        
-        for (const d of days) {
-          const dateKey = formatDateKey(d);
-          const availability = await supabaseService.getAvailability(dateKey);
-          if (availability.length > 0) {
-            loaded[dateKey] = availability
-              .filter((slot: any) => slot.status === 'booked')
-              .map((slot: any) => slot.time);
-          }
-        }
-        setBookedSlots(loaded);
-      } catch (err) {
-        console.error('Error loading slots:', err);
-        setError('Error al cargar horarios disponibles');
-      } finally {
-        setLoading(false);
+    const days = getWeekDays(currentWeekStart);
+    const loaded: Record<string, string[]> = {};
+    days.forEach((d) => {
+      const key = getStorageKey(d);
+      const stored = localStorage.getItem(key);
+      if (stored) {
+        loaded[formatDateKey(d)] = JSON.parse(stored);
       }
-    };
-    loadSlots();
+    });
+    setBookedSlots(loaded);
   }, [currentWeekStart]);
 
   const weekDays = useMemo(() => getWeekDays(currentWeekStart), [currentWeekStart]);
@@ -105,7 +88,11 @@ const BookingSystem = () => {
   const allSlots = useMemo(() => (selectedDay ? getSlots(selectedDay) : []), [selectedDay]);
 
   const dayBooked = selectedDay ? bookedSlots[formatDateKey(selectedDay)] || [] : [];
-  const dayBlocked = selectedDay ? [] : [];
+  const dayBlocked = selectedDay ? (() => {
+    const blockedKey = `nicoke_blocked_${formatDateKey(selectedDay)}`;
+    const storedBlocked = localStorage.getItem(blockedKey);
+    return storedBlocked ? JSON.parse(storedBlocked) : [];
+  })() : [];
 
   // Filter out blocked and booked slots
   const slots = useMemo(() => {
@@ -158,7 +145,7 @@ const BookingSystem = () => {
     setStep(4);
   };
 
-  const handleConfirm = async () => {
+  const handleConfirm = () => {
     if (!selectedDay || !selectedHour || !selectedService) return;
     
     // Validate phone number
@@ -173,44 +160,55 @@ const BookingSystem = () => {
       return;
     }
     
-    setLoading(true);
-    setError("");
+    // Sanitize inputs
+    const sanitizedNotes = formData.notes ? validateInput(formData.notes, "string").sanitized : "";
+    const sanitizedPhone = formData.phone ? validateInput(formData.phone, "phone").sanitized : "";
+    const sanitizedEmail = formData.email ? validateInput(formData.email, "email").sanitized : "";
+    const booking = {
+      id: crypto.randomUUID(),
+      name: validateInput(formData.name, "name").sanitized,
+      phone: sanitizedPhone,
+      service: selectedService,
+      date: formatDateKey(selectedDay),
+      time: selectedHour,
+      notes: sanitizedNotes,
+      status: "confirmed" as const,
+      createdAt: new Date().toISOString()
+    };
     
-    try {
-      // Sanitize inputs
-      const sanitizedNotes = formData.notes ? validateInput(formData.notes, "string").sanitized : "";
-      const sanitizedPhone = formData.phone ? validateInput(formData.phone, "phone").sanitized : "";
-      const sanitizedEmail = formData.email ? validateInput(formData.email, "email").sanitized : "";
-      
-      // Create booking via Supabase with server-side concurrency check
-      await supabaseService.createBooking({
-        client_name: validateInput(formData.name, "name").sanitized,
-        client_phone: sanitizedPhone,
-        client_email: sanitizedEmail,
-        service: selectedService,
-        date: formatDateKey(selectedDay),
-        time: selectedHour,
-        notes: sanitizedNotes,
-        status: 'confirmed'
-      });
+    // Save to bookings array for AgendaManager
+    const existingBookings = localStorage.getItem("bookings");
+    const bookings = existingBookings ? JSON.parse(existingBookings) : [];
+    bookings.push(booking);
+    localStorage.setItem("bookings", JSON.stringify(bookings));
 
-      // Update availability
-      const dateKey = formatDateKey(selectedDay);
-      await supabaseService.updateAvailabilitySlot(dateKey, selectedHour, 'booked');
-      
-      // Update local state
-      const existing = bookedSlots[dateKey] || [];
-      const updated = [...existing, selectedHour];
-      setBookedSlots((prev) => ({ ...prev, [dateKey]: updated }));
-      
-      setStep(5);
-    } catch (err: any) {
-      console.error('Error creating booking:', err);
-      setError(err.message || 'Error al crear la reserva. Por favor, intenta de nuevo.');
-      alert(err.message || 'Error al crear la reserva. Por favor, intenta de nuevo.');
-    } finally {
-      setLoading(false);
+    // Also save to old system for availability
+    const dateKey = formatDateKey(selectedDay);
+    const storageKey = getStorageKey(selectedDay);
+    const existing = bookedSlots[dateKey] || [];
+    const updated = [...existing, selectedHour];
+    localStorage.setItem(storageKey, JSON.stringify(updated));
+    setBookedSlots((prev) => ({ ...prev, [dateKey]: updated }));
+
+    // Save to Admin format for schedule section
+    const adminAvailabilityKey = `nicoke_disponibilidad_${dateKey}`;
+    const existingAdminAvailability = localStorage.getItem(adminAvailabilityKey);
+    let adminAvailability = existingAdminAvailability ? JSON.parse(existingAdminAvailability) : [];
+
+    // Add or update the slot as booked
+    const slotIndex = adminAvailability.findIndex((slot: any) => slot.time === selectedHour);
+    if (slotIndex >= 0) {
+      adminAvailability[slotIndex].status = 'booked';
+    } else {
+      adminAvailability.push({
+        id: `${dateKey}-${selectedHour}`,
+        time: selectedHour,
+        status: 'booked'
+      });
     }
+    localStorage.setItem(adminAvailabilityKey, JSON.stringify(adminAvailability));
+    
+    setStep(5);
   };
 
   const resetForm = () => {
