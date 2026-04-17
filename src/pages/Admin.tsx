@@ -5,6 +5,7 @@ import ProductManager from "../components/ProductManager";
 import AgendaManager from "../components/AgendaManager";
 import OrderManager from "../components/OrderManager";
 import { removeSecureItem } from "../utils/encryption";
+import { supabaseService } from "../services/supabaseService";
 
 interface TimeSlot {
   id: string;
@@ -54,12 +55,9 @@ const Admin = () => {
       // Generate time slots for the selected date
       const slots = generateTimeSlots();
 
-      // Load availability from localStorage
-      const availabilityKey = `nicoke_disponibilidad_${selectedDate}`;
-      const storedAvailability = localStorage.getItem(availabilityKey);
-
-      if (storedAvailability) {
-        const availability = JSON.parse(storedAvailability);
+      // Load availability from Supabase
+      const availability = await supabaseService.getAvailability(selectedDate);
+      if (availability.length > 0) {
         // Update slot status based on availability
         const updatedSlots = slots.map(slot => {
           const availSlot = availability.find((a: any) => a.time === slot.time);
@@ -70,14 +68,28 @@ const Admin = () => {
         setTimeSlots(slots);
       }
     } catch (err) {
-      setError("Error al cargar disponibilidad");
+      // Fallback to localStorage if Supabase fails
+      const availabilityKey = `nicoke_disponibilidad_${selectedDate}`;
+      const storedAvailability = localStorage.getItem(availabilityKey);
+
+      if (storedAvailability) {
+        const availability = JSON.parse(storedAvailability);
+        const slots = generateTimeSlots();
+        const updatedSlots = slots.map(slot => {
+          const availSlot = availability.find((a: any) => a.time === slot.time);
+          return availSlot ? { ...slot, status: availSlot.status } : slot;
+        });
+        setTimeSlots(updatedSlots);
+      } else {
+        setTimeSlots(generateTimeSlots());
+      }
     } finally {
       setLoading(false);
     }
   }, [selectedDate, generateTimeSlots]);
 
   // Handle slot click
-  const handleSlotClick = useCallback((slot: TimeSlot) => {
+  const handleSlotClick = useCallback(async (slot: TimeSlot) => {
     if (slot.status === 'booked') return; // Can't modify booked slots
 
     const updatedSlots = timeSlots.map(s =>
@@ -88,9 +100,21 @@ const Admin = () => {
 
     setTimeSlots(updatedSlots);
 
-    // Save to localStorage
-    const availabilityKey = `nicoke_disponibilidad_${selectedDate}`;
-    localStorage.setItem(availabilityKey, JSON.stringify(updatedSlots));
+    // Save to Supabase
+    try {
+      const availabilityData = updatedSlots.map(slot => ({
+        id: slot.id,
+        date: selectedDate,
+        time: slot.time,
+        status: slot.status,
+        created_at: new Date().toISOString()
+      }));
+      await supabaseService.setAvailability(selectedDate, availabilityData);
+    } catch (err) {
+      // Fallback to localStorage
+      const availabilityKey = `nicoke_disponibilidad_${selectedDate}`;
+      localStorage.setItem(availabilityKey, JSON.stringify(updatedSlots));
+    }
   }, [selectedDate, timeSlots]);
 
   // Handle logout
@@ -131,7 +155,17 @@ const Admin = () => {
   // Load availability on mount and date change
   useEffect(() => {
     loadAvailability();
-  }, [loadAvailability]);
+    // Set up real-time subscription for availability
+    const unsubscribe = supabaseService.subscribeToAvailability(selectedDate, (availability) => {
+      const slots = generateTimeSlots();
+      const updatedSlots = slots.map(slot => {
+        const availSlot = availability.find((a: any) => a.time === slot.time);
+        return availSlot ? { ...slot, status: availSlot.status } : slot;
+      });
+      setTimeSlots(updatedSlots);
+    });
+    return () => unsubscribe();
+  }, [loadAvailability, selectedDate]);
 
   return (
     <div className="min-h-screen bg-background">
