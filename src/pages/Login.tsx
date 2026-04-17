@@ -7,7 +7,7 @@ const Login = () => {
   const [credentials, setCredentials] = useState({ username: "", password: "" });
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
-  const [attemptsRemaining, setAttemptsRemaining] = useState(5);
+  const [attemptsRemaining, setAttemptsRemaining] = useState(4);
   const [lockoutTime, setLockoutTime] = useState<number | null>(null);
   const navigate = useNavigate();
 
@@ -17,15 +17,33 @@ const Login = () => {
     setLoading(true);
 
     try {
-      // Clear any existing lockout data
-      localStorage.removeItem("loginLockout");
-      localStorage.removeItem("loginAttempts");
+      // Check if locked out
+      const storedLockout = localStorage.getItem("loginLockout");
+      if (storedLockout) {
+        const lockoutData = JSON.parse(storedLockout);
+        if (Date.now() < lockoutData.time) {
+          const remainingTime = Math.ceil((lockoutData.time - Date.now()) / 1000 / 60);
+          setError(`Demasiados intentos. Intenta nuevamente en ${remainingTime} minutos.`);
+          setLoading(false);
+          return;
+        } else {
+          // Lockout expired, clear it
+          localStorage.removeItem("loginLockout");
+          localStorage.removeItem("loginAttempts");
+          setAttemptsRemaining(4);
+        }
+      }
 
       // Validación con credenciales de variables de entorno
       const adminUsername = import.meta.env.VITE_ADMIN_USERNAME || "ADMIN";
       const adminPassword = import.meta.env.VITE_ADMIN_PASSWORD || "n.984623E";
-      
+
       if (credentials.username === adminUsername && credentials.password === adminPassword) {
+        // Clear lockout data on successful login
+        localStorage.removeItem("loginLockout");
+        localStorage.removeItem("loginAttempts");
+        setAttemptsRemaining(4);
+
         // Generar token más seguro con timestamp y random
         const token = `admin-token-${Date.now()}-${Math.random().toString(36).substring(2, 15)}`;
 
@@ -34,7 +52,20 @@ const Login = () => {
         setSecureItem("user", { username: adminUsername, role: "admin", loginTime: Date.now() });
         navigate("/admin");
       } else {
-        setError("Credenciales incorrectas. Usuario: ADMIN, Contraseña: n.984623E");
+        // Decrement attempts
+        const newAttempts = attemptsRemaining - 1;
+        setAttemptsRemaining(newAttempts);
+        localStorage.setItem("loginAttempts", newAttempts.toString());
+
+        if (newAttempts <= 0) {
+          // Lock out for 15 minutes
+          const lockoutUntil = Date.now() + 15 * 60 * 1000;
+          localStorage.setItem("loginLockout", JSON.stringify({ time: lockoutUntil }));
+          setError("Demasiados intentos. Cuenta bloqueada por 15 minutos.");
+          setLockoutTime(lockoutUntil);
+        } else {
+          setError(`Credenciales incorrectas. Intentos restantes: ${newAttempts}`);
+        }
       }
     } catch (err) {
       setError("Error de autenticación. Por favor, intenta nuevamente.");
@@ -43,11 +74,20 @@ const Login = () => {
     }
   };
 
-  // Clear any existing lockout data on mount
+  // Load existing attempts on mount
   useEffect(() => {
-    localStorage.removeItem("loginLockout");
-    localStorage.removeItem("loginAttempts");
-    setAttemptsRemaining(5);
+    const storedAttempts = localStorage.getItem("loginAttempts");
+    if (storedAttempts) {
+      setAttemptsRemaining(parseInt(storedAttempts));
+    }
+
+    const storedLockout = localStorage.getItem("loginLockout");
+    if (storedLockout) {
+      const lockoutData = JSON.parse(storedLockout);
+      if (Date.now() < lockoutData.time) {
+        setLockoutTime(lockoutData.time);
+      }
+    }
   }, []);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {

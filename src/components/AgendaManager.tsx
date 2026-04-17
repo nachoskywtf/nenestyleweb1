@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { Calendar, Clock, Phone, MessageCircle, X, CheckCircle, XCircle, Users } from "lucide-react";
 import { formatCLP } from "../utils/currency";
+import { firebaseService } from "../services/firebaseService";
 
 interface Booking {
   id: string;
@@ -41,10 +42,9 @@ const AgendaManager = () => {
       setLoading(true);
       setError("");
       
-      // Load bookings from localStorage
-      const storedBookings = localStorage.getItem("bookings");
-      if (storedBookings) {
-        const parsedBookings = JSON.parse(storedBookings).map((booking: any) => ({
+      const storedBookings = await firebaseService.getBookings();
+      if (storedBookings.length > 0) {
+        const parsedBookings = storedBookings.map((booking: any) => ({
           ...booking,
           status: booking.status === "confirmed" || booking.status === "cancelled" ? booking.status : "confirmed" as const
         }));
@@ -61,7 +61,6 @@ const AgendaManager = () => {
 
   const handleCancelBooking = async (bookingId: string) => {
     try {
-      // Update booking status to cancelled
       const updatedBookings = bookings.map(booking => 
         booking.id === bookingId 
           ? { ...booking, status: "cancelled" as const }
@@ -69,20 +68,15 @@ const AgendaManager = () => {
       );
       
       setBookings(updatedBookings);
-      localStorage.setItem("bookings", JSON.stringify(updatedBookings));
+      await firebaseService.setBookings(updatedBookings);
       
-      // Update availability in localStorage (mark the time slot as available)
       const cancelledBooking = bookings.find(b => b.id === bookingId);
       if (cancelledBooking) {
-        const availabilityKey = `nicoke_disponibilidad_${cancelledBooking.date}`;
-        const storedAvailability = localStorage.getItem(availabilityKey);
-        if (storedAvailability) {
-          const availability = JSON.parse(storedAvailability);
-          const updatedAvailability = availability.map((slot: any) => 
-            slot.time === cancelledBooking.time ? { ...slot, status: 'available' } : slot
-          );
-          localStorage.setItem(availabilityKey, JSON.stringify(updatedAvailability));
-        }
+        const availability = await firebaseService.getAvailability(cancelledBooking.date);
+        const updatedAvailability = availability.map((slot: any) => 
+          slot.time === cancelledBooking.time ? { ...slot, status: 'available' } : slot
+        );
+        await firebaseService.setAvailability(cancelledBooking.date, updatedAvailability);
       }
     } catch (err) {
       setError("Error al cancelar la reserva");
@@ -91,23 +85,17 @@ const AgendaManager = () => {
 
   const handleDeleteBooking = async (bookingId: string) => {
     try {
-      // Remove booking from localStorage
       const updatedBookings = bookings.filter(booking => booking.id !== bookingId);
       setBookings(updatedBookings);
-      localStorage.setItem("bookings", JSON.stringify(updatedBookings));
+      await firebaseService.setBookings(updatedBookings);
       
-      // Update availability for the deleted booking
       const deletedBooking = bookings.find(b => b.id === bookingId);
       if (deletedBooking) {
-        const availabilityKey = `nicoke_disponibilidad_${deletedBooking.date}`;
-        const storedAvailability = localStorage.getItem(availabilityKey);
-        if (storedAvailability) {
-          const availability = JSON.parse(storedAvailability);
-          const updatedAvailability = availability.map((slot: any) => 
-            slot.time === deletedBooking.time ? { ...slot, status: 'available' } : slot
-          );
-          localStorage.setItem(availabilityKey, JSON.stringify(updatedAvailability));
-        }
+        const availability = await firebaseService.getAvailability(deletedBooking.date);
+        const updatedAvailability = availability.map((slot: any) => 
+          slot.time === deletedBooking.time ? { ...slot, status: 'available' } : slot
+        );
+        await firebaseService.setAvailability(deletedBooking.date, updatedAvailability);
       }
     } catch (err) {
       setError("Error al eliminar la reserva");
