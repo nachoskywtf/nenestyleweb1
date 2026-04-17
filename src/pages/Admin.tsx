@@ -5,7 +5,7 @@ import ProductManager from "../components/ProductManager";
 import AgendaManager from "../components/AgendaManager";
 import OrderManager from "../components/OrderManager";
 import { removeSecureItem } from "../utils/encryption";
-import { firebaseService } from "../services/firebaseService";
+import { supabaseService } from "../services/supabaseService";
 
 interface TimeSlot {
   id: string;
@@ -55,36 +55,21 @@ const Admin = () => {
       // Generate time slots for the selected date
       const slots = generateTimeSlots();
 
-      // Load availability from Firebase with localStorage fallback
-      try {
-        const storedAvailability = await firebaseService.getAvailability(selectedDate);
-        if (storedAvailability.length > 0) {
-          // Update slot status based on availability
-          const updatedSlots = slots.map(slot => {
-            const availSlot = storedAvailability.find((a: any) => a.time === slot.time);
-            return availSlot ? { ...slot, status: availSlot.status } : slot;
-          });
-          setTimeSlots(updatedSlots);
-        } else {
-          setTimeSlots(slots);
-        }
-      } catch {
-        // Fallback to localStorage
-        const availabilityKey = `nicoke_disponibilidad_${selectedDate}`;
-        const storedAvailability = localStorage.getItem(availabilityKey);
-        if (storedAvailability) {
-          const availability = JSON.parse(storedAvailability);
-          const updatedSlots = slots.map(slot => {
-            const availSlot = availability.find((a: any) => a.time === slot.time);
-            return availSlot ? { ...slot, status: availSlot.status } : slot;
-          });
-          setTimeSlots(updatedSlots);
-        } else {
-          setTimeSlots(slots);
-        }
+      // Load availability from Supabase
+      const availability = await supabaseService.getAvailability(selectedDate);
+      if (availability.length > 0) {
+        // Update slot status based on availability
+        const updatedSlots = slots.map(slot => {
+          const availSlot = availability.find((a: any) => a.time === slot.time);
+          return availSlot ? { ...slot, status: availSlot.status } : slot;
+        });
+        setTimeSlots(updatedSlots);
+      } else {
+        setTimeSlots(slots);
       }
     } catch (err) {
       setError("Error al cargar disponibilidad");
+      console.error('Error loading availability:', err);
     } finally {
       setLoading(false);
     }
@@ -102,13 +87,19 @@ const Admin = () => {
 
     setTimeSlots(updatedSlots);
 
-    // Save to Firebase with localStorage fallback
+    // Save to Supabase
     try {
-      await firebaseService.setAvailability(selectedDate, updatedSlots);
-    } catch {
-      // Fallback to localStorage
-      const availabilityKey = `nicoke_disponibilidad_${selectedDate}`;
-      localStorage.setItem(availabilityKey, JSON.stringify(updatedSlots));
+      const availabilityData = updatedSlots.map(slot => ({
+        id: slot.id,
+        date: selectedDate,
+        time: slot.time,
+        status: slot.status,
+        created_at: new Date().toISOString()
+      }));
+      await supabaseService.setAvailability(selectedDate, availabilityData);
+    } catch (err) {
+      console.error('Error updating availability:', err);
+      setError('Error al actualizar disponibilidad');
     }
   }, [selectedDate, timeSlots]);
 
@@ -149,10 +140,18 @@ const Admin = () => {
 
   // Load availability on mount and date change
   useEffect(() => {
-    if (selectedDate) {
-      loadAvailability();
-    }
-  }, [selectedDate, loadAvailability]);
+    loadAvailability();
+    // Set up real-time subscription for availability
+    const unsubscribe = supabaseService.subscribeToAvailability(selectedDate, (availability) => {
+      const slots = generateTimeSlots();
+      const updatedSlots = slots.map(slot => {
+        const availSlot = availability.find((a: any) => a.time === slot.time);
+        return availSlot ? { ...slot, status: availSlot.status } : slot;
+      });
+      setTimeSlots(updatedSlots);
+    });
+    return () => unsubscribe();
+  }, [loadAvailability, selectedDate]);
 
   return (
     <div className="min-h-screen bg-background">

@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from "react";
 import { Check, ChevronLeft, ChevronRight, MessageCircle } from "lucide-react";
 import { validateInput, isValidChileanPhone, isValidEmail } from "../utils/sanitization";
-import { firebaseService } from "../services/firebaseService";
+import { supabaseService } from "../services/supabaseService";
 
 // Types
 interface FormData {
@@ -69,29 +69,33 @@ const BookingSystem = () => {
   const [bookedSlots, setBookedSlots] = useState<Record<string, string[]>>({});
   const [step, setStep] = useState(1);
   const [formData, setFormData] = useState<FormData>({ name: "", phone: "", email: "", notes: "" });
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
 
-  // Load booked slots from Firebase with localStorage fallback
+  // Load booked slots from Supabase with real-time sync
   useEffect(() => {
     const loadSlots = async () => {
-      const days = getWeekDays(currentWeekStart);
-      const loaded: Record<string, string[]> = {};
-      for (const d of days) {
-        const dateKey = formatDateKey(d);
-        try {
-          const availability = await firebaseService.getAvailability(dateKey);
+      try {
+        setLoading(true);
+        const days = getWeekDays(currentWeekStart);
+        const loaded: Record<string, string[]> = {};
+        
+        for (const d of days) {
+          const dateKey = formatDateKey(d);
+          const availability = await supabaseService.getAvailability(dateKey);
           if (availability.length > 0) {
-            loaded[dateKey] = availability.filter((slot: any) => slot.status === 'booked').map((slot: any) => slot.time);
-          }
-        } catch {
-          // Fallback to localStorage
-          const key = getStorageKey(d);
-          const stored = localStorage.getItem(key);
-          if (stored) {
-            loaded[dateKey] = JSON.parse(stored);
+            loaded[dateKey] = availability
+              .filter((slot: any) => slot.status === 'booked')
+              .map((slot: any) => slot.time);
           }
         }
+        setBookedSlots(loaded);
+      } catch (err) {
+        console.error('Error loading slots:', err);
+        setError('Error al cargar horarios disponibles');
+      } finally {
+        setLoading(false);
       }
-      setBookedSlots(loaded);
     };
     loadSlots();
   }, [currentWeekStart]);
@@ -101,11 +105,7 @@ const BookingSystem = () => {
   const allSlots = useMemo(() => (selectedDay ? getSlots(selectedDay) : []), [selectedDay]);
 
   const dayBooked = selectedDay ? bookedSlots[formatDateKey(selectedDay)] || [] : [];
-  const dayBlocked = selectedDay ? (() => {
-    const blockedKey = `nicoke_blocked_${formatDateKey(selectedDay)}`;
-    const storedBlocked = localStorage.getItem(blockedKey);
-    return storedBlocked ? JSON.parse(storedBlocked) : [];
-  })() : [];
+  const dayBlocked = selectedDay ? [] : [];
 
   // Filter out blocked and booked slots
   const slots = useMemo(() => {
@@ -173,57 +173,44 @@ const BookingSystem = () => {
       return;
     }
     
-    // Sanitize inputs
-    const sanitizedName = validateInput(formData.name || "Cliente", "name").sanitized;
-    const sanitizedPhone = validateInput(formData.phone || "", "phone").sanitized;
-    const sanitizedEmail = validateInput(formData.email || "", "email").sanitized;
-    const sanitizedNotes = validateInput(formData.notes || "", "string").sanitized;
+    setLoading(true);
+    setError("");
     
-    // Create complete booking object for AgendaManager
-    const booking = {
-      id: `booking_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-      name: sanitizedName,
-      phone: sanitizedPhone,
-      service: selectedService,
-      date: formatDateKey(selectedDay),
-      time: selectedHour,
-      notes: sanitizedNotes,
-      status: "confirmed" as const,
-      createdAt: new Date().toISOString()
-    };
-    
-    // Save to bookings array for AgendaManager
-    const existingBookings = await firebaseService.getBookings();
-    const bookings = existingBookings || [];
-    bookings.push(booking);
-    await firebaseService.setBookings(bookings);
-
-    // Also save to old system for availability
-    const dateKey = formatDateKey(selectedDay);
-    const storageKey = getStorageKey(selectedDay);
-    const existing = bookedSlots[dateKey] || [];
-    const updated = [...existing, selectedHour];
-    localStorage.setItem(storageKey, JSON.stringify(updated));
-    setBookedSlots((prev) => ({ ...prev, [dateKey]: updated }));
-
-    // Save to Admin format for schedule section
-    const existingAdminAvailability = await firebaseService.getAvailability(dateKey);
-    let adminAvailability = existingAdminAvailability || [];
-
-    // Add or update the slot as booked
-    const slotIndex = adminAvailability.findIndex((slot: any) => slot.time === selectedHour);
-    if (slotIndex >= 0) {
-      adminAvailability[slotIndex].status = 'booked';
-    } else {
-      adminAvailability.push({
-        id: `${dateKey}-${selectedHour}`,
+    try {
+      // Sanitize inputs
+      const sanitizedNotes = formData.notes ? validateInput(formData.notes, "string").sanitized : "";
+      const sanitizedPhone = formData.phone ? validateInput(formData.phone, "phone").sanitized : "";
+      const sanitizedEmail = formData.email ? validateInput(formData.email, "email").sanitized : "";
+      
+      // Create booking via Supabase with server-side concurrency check
+      await supabaseService.createBooking({
+        client_name: validateInput(formData.name, "name").sanitized,
+        client_phone: sanitizedPhone,
+        client_email: sanitizedEmail,
+        service: selectedService,
+        date: formatDateKey(selectedDay),
         time: selectedHour,
-        status: 'booked'
+        notes: sanitizedNotes,
+        status: 'confirmed'
       });
+
+      // Update availability
+      const dateKey = formatDateKey(selectedDay);
+      await supabaseService.updateAvailabilitySlot(dateKey, selectedHour, 'booked');
+      
+      // Update local state
+      const existing = bookedSlots[dateKey] || [];
+      const updated = [...existing, selectedHour];
+      setBookedSlots((prev) => ({ ...prev, [dateKey]: updated }));
+      
+      setStep(5);
+    } catch (err: any) {
+      console.error('Error creating booking:', err);
+      setError(err.message || 'Error al crear la reserva. Por favor, intenta de nuevo.');
+      alert(err.message || 'Error al crear la reserva. Por favor, intenta de nuevo.');
+    } finally {
+      setLoading(false);
     }
-    await firebaseService.setAvailability(dateKey, adminAvailability);
-    
-    setStep(5);
   };
 
   const resetForm = () => {
