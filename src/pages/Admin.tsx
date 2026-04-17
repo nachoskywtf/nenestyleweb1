@@ -5,6 +5,7 @@ import ProductManager from "../components/ProductManager";
 import AgendaManager from "../components/AgendaManager";
 import OrderManager from "../components/OrderManager";
 import { removeSecureItem } from "../utils/encryption";
+import { firebaseService } from "../services/firebaseService";
 
 interface TimeSlot {
   id: string;
@@ -54,20 +55,33 @@ const Admin = () => {
       // Generate time slots for the selected date
       const slots = generateTimeSlots();
 
-      // Load availability from localStorage
-      const availabilityKey = `nicoke_disponibilidad_${selectedDate}`;
-      const storedAvailability = localStorage.getItem(availabilityKey);
-
-      if (storedAvailability) {
-        const availability = JSON.parse(storedAvailability);
-        // Update slot status based on availability
-        const updatedSlots = slots.map(slot => {
-          const availSlot = availability.find((a: any) => a.time === slot.time);
-          return availSlot ? { ...slot, status: availSlot.status } : slot;
-        });
-        setTimeSlots(updatedSlots);
-      } else {
-        setTimeSlots(slots);
+      // Load availability from Firebase with localStorage fallback
+      try {
+        const storedAvailability = await firebaseService.getAvailability(selectedDate);
+        if (storedAvailability.length > 0) {
+          // Update slot status based on availability
+          const updatedSlots = slots.map(slot => {
+            const availSlot = storedAvailability.find((a: any) => a.time === slot.time);
+            return availSlot ? { ...slot, status: availSlot.status } : slot;
+          });
+          setTimeSlots(updatedSlots);
+        } else {
+          setTimeSlots(slots);
+        }
+      } catch {
+        // Fallback to localStorage
+        const availabilityKey = `nicoke_disponibilidad_${selectedDate}`;
+        const storedAvailability = localStorage.getItem(availabilityKey);
+        if (storedAvailability) {
+          const availability = JSON.parse(storedAvailability);
+          const updatedSlots = slots.map(slot => {
+            const availSlot = availability.find((a: any) => a.time === slot.time);
+            return availSlot ? { ...slot, status: availSlot.status } : slot;
+          });
+          setTimeSlots(updatedSlots);
+        } else {
+          setTimeSlots(slots);
+        }
       }
     } catch (err) {
       setError("Error al cargar disponibilidad");
@@ -77,7 +91,7 @@ const Admin = () => {
   }, [selectedDate, generateTimeSlots]);
 
   // Handle slot click
-  const handleSlotClick = useCallback((slot: TimeSlot) => {
+  const handleSlotClick = useCallback(async (slot: TimeSlot) => {
     if (slot.status === 'booked') return; // Can't modify booked slots
 
     const updatedSlots = timeSlots.map(s =>
@@ -88,9 +102,14 @@ const Admin = () => {
 
     setTimeSlots(updatedSlots);
 
-    // Save to localStorage
-    const availabilityKey = `nicoke_disponibilidad_${selectedDate}`;
-    localStorage.setItem(availabilityKey, JSON.stringify(updatedSlots));
+    // Save to Firebase with localStorage fallback
+    try {
+      await firebaseService.setAvailability(selectedDate, updatedSlots);
+    } catch {
+      // Fallback to localStorage
+      const availabilityKey = `nicoke_disponibilidad_${selectedDate}`;
+      localStorage.setItem(availabilityKey, JSON.stringify(updatedSlots));
+    }
   }, [selectedDate, timeSlots]);
 
   // Handle logout
