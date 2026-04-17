@@ -28,27 +28,32 @@ const CatalogoPerfumes = () => {
 
   useEffect(() => {
     loadData();
-    // Set up real-time subscription for products
-    const unsubscribe = supabaseService.subscribeToProducts((updatedProducts) => {
-      // Filter for Perfumes category
-      const perfumeCategory = categories.find(c => c.name === "Perfumes");
-      if (perfumeCategory) {
-        const filtered = updatedProducts
-          .map((p: any) => ({
-            id: p.id,
-            name: p.name,
-            price: p.price,
-            stock: p.sizes?.reduce((total: number, s: any) => total + s.stock, 0) || 0,
-            categoryId: p.category_id,
-            image: p.images[0] || "",
-            description: p.description,
-            createdAt: p.created_at
-          }))
-          .filter(p => p.categoryId === perfumeCategory.id);
-        setProducts(filtered);
-      }
-    });
-    return () => unsubscribe();
+  }, []);
+
+  useEffect(() => {
+    // Set up real-time subscription for products only after categories are loaded
+    if (categories.length > 0) {
+      const unsubscribe = supabaseService.subscribeToProducts((updatedProducts) => {
+        // Filter for Perfumes category
+        const perfumeCategory = categories.find(c => c.name === "Perfumes");
+        if (perfumeCategory) {
+          const filtered = updatedProducts
+            .map((p: any) => ({
+              id: p.id,
+              name: p.name,
+              price: p.price,
+              stock: p.sizes?.reduce((total: number, s: any) => total + s.stock, 0) || 0,
+              categoryId: p.category_id,
+              image: p.images[0] || "",
+              description: p.description,
+              createdAt: p.created_at
+            }))
+            .filter(p => p.categoryId === perfumeCategory.id);
+          setProducts(filtered);
+        }
+      });
+      return () => unsubscribe();
+    }
   }, [categories]);
 
   const loadData = async () => {
