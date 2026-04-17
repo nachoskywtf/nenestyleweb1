@@ -1,7 +1,6 @@
 import { useState, useEffect } from "react";
 import { Calendar, Clock, Phone, MessageCircle, X, CheckCircle, XCircle, Users } from "lucide-react";
 import { formatCLP } from "../utils/currency";
-import { firebaseService } from "../services/firebaseService";
 
 interface Booking {
   id: string;
@@ -42,9 +41,9 @@ const AgendaManager = () => {
       setLoading(true);
       setError("");
       
-      const storedBookings = await firebaseService.getBookings();
-      if (storedBookings.length > 0) {
-        const parsedBookings = storedBookings.map((booking: any) => ({
+      const storedBookings = localStorage.getItem("bookings");
+      if (storedBookings) {
+        const parsedBookings = JSON.parse(storedBookings).map((booking: any) => ({
           ...booking,
           status: booking.status === "confirmed" || booking.status === "cancelled" ? booking.status : "confirmed" as const
         }));
@@ -68,15 +67,19 @@ const AgendaManager = () => {
       );
       
       setBookings(updatedBookings);
-      await firebaseService.setBookings(updatedBookings);
+      localStorage.setItem("bookings", JSON.stringify(updatedBookings));
       
       const cancelledBooking = bookings.find(b => b.id === bookingId);
       if (cancelledBooking) {
-        const availability = await firebaseService.getAvailability(cancelledBooking.date);
-        const updatedAvailability = availability.map((slot: any) => 
-          slot.time === cancelledBooking.time ? { ...slot, status: 'available' } : slot
-        );
-        await firebaseService.setAvailability(cancelledBooking.date, updatedAvailability);
+        const availabilityKey = `nicoke_disponibilidad_${cancelledBooking.date}`;
+        const storedAvailability = localStorage.getItem(availabilityKey);
+        if (storedAvailability) {
+          const availability = JSON.parse(storedAvailability);
+          const updatedAvailability = availability.map((slot: any) => 
+            slot.time === cancelledBooking.time ? { ...slot, status: 'available' } : slot
+          );
+          localStorage.setItem(availabilityKey, JSON.stringify(updatedAvailability));
+        }
       }
     } catch (err) {
       setError("Error al cancelar la reserva");
@@ -87,15 +90,19 @@ const AgendaManager = () => {
     try {
       const updatedBookings = bookings.filter(booking => booking.id !== bookingId);
       setBookings(updatedBookings);
-      await firebaseService.setBookings(updatedBookings);
+      localStorage.setItem("bookings", JSON.stringify(updatedBookings));
       
       const deletedBooking = bookings.find(b => b.id === bookingId);
       if (deletedBooking) {
-        const availability = await firebaseService.getAvailability(deletedBooking.date);
-        const updatedAvailability = availability.map((slot: any) => 
-          slot.time === deletedBooking.time ? { ...slot, status: 'available' } : slot
-        );
-        await firebaseService.setAvailability(deletedBooking.date, updatedAvailability);
+        const availabilityKey = `nicoke_disponibilidad_${deletedBooking.date}`;
+        const storedAvailability = localStorage.getItem(availabilityKey);
+        if (storedAvailability) {
+          const availability = JSON.parse(storedAvailability);
+          const updatedAvailability = availability.map((slot: any) => 
+            slot.time === deletedBooking.time ? { ...slot, status: 'available' } : slot
+          );
+          localStorage.setItem(availabilityKey, JSON.stringify(updatedAvailability));
+        }
       }
     } catch (err) {
       setError("Error al eliminar la reserva");

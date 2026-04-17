@@ -1,7 +1,6 @@
 import { useState, useEffect } from "react";
 import { ShoppingBag, Package, Truck, CheckCircle, XCircle, Clock, User, Phone, MapPin, CreditCard, MessageCircle, Download, FileText } from "lucide-react";
 import { formatCLP } from "../utils/currency";
-import { firebaseService } from "../services/firebaseService";
 
 interface Order {
   id: string;
@@ -51,9 +50,9 @@ const OrderManager = () => {
       setLoading(true);
       setError("");
       
-      const storedOrders = await firebaseService.getOrders();
-      if (storedOrders.length > 0) {
-        const parsedOrders = storedOrders.map((order: any) => ({
+      const storedOrders = localStorage.getItem("orders");
+      if (storedOrders) {
+        const parsedOrders = JSON.parse(storedOrders).map((order: any) => ({
           ...order,
           status: (order.status === "pending" || order.status === "confirmed" || order.status === "shipped" || order.status === "delivered" || order.status === "cancelled") ? order.status : "pending"
         }));
@@ -77,7 +76,7 @@ const OrderManager = () => {
       );
       
       setOrders(updatedOrders);
-      await firebaseService.setOrders(updatedOrders);
+      localStorage.setItem("orders", JSON.stringify(updatedOrders));
     } catch (err) {
       setError("Error al actualizar el estado del pedido");
     }

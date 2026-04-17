@@ -1,7 +1,6 @@
 import { useState, useEffect } from "react";
 import { Package, Plus, Edit2, Trash2, Save, X, Image, DollarSign, Box, Tag, PlusCircle } from "lucide-react";
 import { formatCLP } from "../utils/currency";
-import { firebaseService } from "../services/firebaseService";
 
 interface Category {
   id: string;
@@ -64,16 +63,16 @@ const ProductManager = () => {
 
   const loadCategories = async () => {
     try {
-      const storedCategories = await firebaseService.getCategories();
-      if (storedCategories.length > 0) {
-        setCategories(storedCategories);
+      const storedCategories = localStorage.getItem("categories");
+      if (storedCategories) {
+        setCategories(JSON.parse(storedCategories));
       } else {
         const defaultCategories = [
           { id: "1", name: "Ropa Urbana", createdAt: new Date().toISOString() },
           { id: "2", name: "Zapatillas", createdAt: new Date().toISOString() },
           { id: "3", name: "Perfumes", createdAt: new Date().toISOString() }
         ];
-        await firebaseService.setCategories(defaultCategories);
+        localStorage.setItem("categories", JSON.stringify(defaultCategories));
         setCategories(defaultCategories);
       }
     } catch (err) {
@@ -83,9 +82,10 @@ const ProductManager = () => {
 
   const loadProducts = async () => {
     try {
-      const storedProducts = await firebaseService.getProducts();
-      if (storedProducts.length > 0) {
-        const migratedProducts = storedProducts.map((p: any) => {
+      const storedProducts = localStorage.getItem("products");
+      if (storedProducts) {
+        const products = JSON.parse(storedProducts);
+        const migratedProducts = products.map((p: any) => {
           if (p.image && !p.images) {
             return {
               ...p,
@@ -164,7 +164,7 @@ const ProductManager = () => {
             ? { ...productData, id: editingProduct.id, createdAt: editingProduct.createdAt }
             : p
         );
-        await firebaseService.setProducts(updatedProducts);
+        localStorage.setItem("products", JSON.stringify(updatedProducts));
         setProducts(updatedProducts);
         setSuccess("Producto actualizado exitosamente");
         setEditingProduct(null);
@@ -174,7 +174,7 @@ const ProductManager = () => {
           id: Date.now().toString()
         };
         const updatedProducts = [...products, newProduct];
-        await firebaseService.setProducts(updatedProducts);
+        localStorage.setItem("products", JSON.stringify(updatedProducts));
         setProducts(updatedProducts);
         setSuccess("Producto creado exitosamente");
       }
@@ -216,7 +216,7 @@ const ProductManager = () => {
       };
 
       const updatedCategories = [...categories, newCategory];
-      await firebaseService.setCategories(updatedCategories);
+      localStorage.setItem("categories", JSON.stringify(updatedCategories));
       setCategories(updatedCategories);
       setSuccess("Categoría creada exitosamente");
       setCategoryName("");
@@ -232,7 +232,7 @@ const ProductManager = () => {
 
     try {
       const updatedProducts = products.filter(p => p.id !== productId);
-      await firebaseService.setProducts(updatedProducts);
+      localStorage.setItem("products", JSON.stringify(updatedProducts));
       setProducts(updatedProducts);
       setSuccess("Producto eliminado exitosamente");
     } catch (err) {
@@ -247,8 +247,8 @@ const ProductManager = () => {
       const updatedCategories = categories.filter(c => c.id !== categoryId);
       const updatedProducts = products.filter(p => p.categoryId !== categoryId);
       
-      await firebaseService.setCategories(updatedCategories);
-      await firebaseService.setProducts(updatedProducts);
+      localStorage.setItem("categories", JSON.stringify(updatedCategories));
+      localStorage.setItem("products", JSON.stringify(updatedProducts));
       
       setCategories(updatedCategories);
       setProducts(updatedProducts);

@@ -1,7 +1,6 @@
 import { useState, useEffect, useMemo } from "react";
 import { Check, ChevronLeft, ChevronRight, MessageCircle } from "lucide-react";
 import { validateInput, isValidChileanPhone, isValidEmail } from "../utils/sanitization";
-import { firebaseService } from "../services/firebaseService";
 
 // Types
 interface FormData {
@@ -70,21 +69,18 @@ const BookingSystem = () => {
   const [step, setStep] = useState(1);
   const [formData, setFormData] = useState<FormData>({ name: "", phone: "", email: "", notes: "" });
 
-  // Load booked slots from Firebase
+  // Load booked slots from localStorage
   useEffect(() => {
-    const loadSlots = async () => {
-      const days = getWeekDays(currentWeekStart);
-      const loaded: Record<string, string[]> = {};
-      for (const d of days) {
-        const dateKey = formatDateKey(d);
-        const availability = await firebaseService.getAvailability(dateKey);
-        if (availability.length > 0) {
-          loaded[dateKey] = availability.filter((slot: any) => slot.status === 'booked').map((slot: any) => slot.time);
-        }
+    const days = getWeekDays(currentWeekStart);
+    const loaded: Record<string, string[]> = {};
+    days.forEach((d) => {
+      const key = getStorageKey(d);
+      const stored = localStorage.getItem(key);
+      if (stored) {
+        loaded[formatDateKey(d)] = JSON.parse(stored);
       }
-      setBookedSlots(loaded);
-    };
-    loadSlots();
+    });
+    setBookedSlots(loaded);
   }, [currentWeekStart]);
 
   const weekDays = useMemo(() => getWeekDays(currentWeekStart), [currentWeekStart]);
@@ -92,7 +88,11 @@ const BookingSystem = () => {
   const allSlots = useMemo(() => (selectedDay ? getSlots(selectedDay) : []), [selectedDay]);
 
   const dayBooked = selectedDay ? bookedSlots[formatDateKey(selectedDay)] || [] : [];
-  const dayBlocked = selectedDay ? [] : [];
+  const dayBlocked = selectedDay ? (() => {
+    const blockedKey = `nicoke_blocked_${formatDateKey(selectedDay)}`;
+    const storedBlocked = localStorage.getItem(blockedKey);
+    return storedBlocked ? JSON.parse(storedBlocked) : [];
+  })() : [];
 
   // Filter out blocked and booked slots
   const slots = useMemo(() => {
@@ -145,7 +145,7 @@ const BookingSystem = () => {
     setStep(4);
   };
 
-  const handleConfirm = async () => {
+  const handleConfirm = () => {
     if (!selectedDay || !selectedHour || !selectedService) return;
     
     // Validate phone number
@@ -180,20 +180,23 @@ const BookingSystem = () => {
     };
     
     // Save to bookings array for AgendaManager
-    const existingBookings = await firebaseService.getBookings();
-    const bookings = existingBookings || [];
+    const existingBookings = localStorage.getItem("bookings");
+    const bookings = existingBookings ? JSON.parse(existingBookings) : [];
     bookings.push(booking);
-    await firebaseService.setBookings(bookings);
+    localStorage.setItem("bookings", JSON.stringify(bookings));
 
-    // Save to availability
+    // Also save to old system for availability
     const dateKey = formatDateKey(selectedDay);
+    const storageKey = getStorageKey(selectedDay);
     const existing = bookedSlots[dateKey] || [];
     const updated = [...existing, selectedHour];
+    localStorage.setItem(storageKey, JSON.stringify(updated));
     setBookedSlots((prev) => ({ ...prev, [dateKey]: updated }));
 
     // Save to Admin format for schedule section
-    const existingAdminAvailability = await firebaseService.getAvailability(dateKey);
-    let adminAvailability = existingAdminAvailability || [];
+    const adminAvailabilityKey = `nicoke_disponibilidad_${dateKey}`;
+    const existingAdminAvailability = localStorage.getItem(adminAvailabilityKey);
+    let adminAvailability = existingAdminAvailability ? JSON.parse(existingAdminAvailability) : [];
 
     // Add or update the slot as booked
     const slotIndex = adminAvailability.findIndex((slot: any) => slot.time === selectedHour);
@@ -206,7 +209,7 @@ const BookingSystem = () => {
         status: 'booked'
       });
     }
-    await firebaseService.setAvailability(dateKey, adminAvailability);
+    localStorage.setItem(adminAvailabilityKey, JSON.stringify(adminAvailability));
     
     setStep(5);
   };
