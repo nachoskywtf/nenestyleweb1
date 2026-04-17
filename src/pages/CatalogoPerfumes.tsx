@@ -1,34 +1,127 @@
 import { ArrowLeft, ShoppingBag, ShoppingCart, Package } from "lucide-react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
+import { useState, useEffect } from "react";
+import { supabaseService } from "../services/supabaseService";
 
-const perfumeProducts = [
-  {
-    name: "Xerjoff Erba Pura Edp",
-    description: "Fragancia exclusiva con notas frescas y naturales",
-    image: "https://images.unsplash.com/photo-1522337360788-8b13dee7a37e?w=400&q=80",
-    price: "$249.990",
-    stock: false
-  },
-  {
-    name: "Valentino Born In Roma Intense Uomo Edp Hombre",
-    description: "Aroma sofisticado y moderno para el hombre contemporáneo",
-    image: "https://images.unsplash.com/photo-1594035910387-fea4779a4034?w=400&q=80",
-    price: "$159.990",
-    stock: false
-  },
-  {
-    name: "Stronger With You Intensely EDP",
-    description: "Fragancia intensa y carismática con notas especiadas",
-    image: "https://images.unsplash.com/photo-1572569511254-d8f925fe2cbb?w=400&q=80",
-    price: "$84.990",
-    stock: false
-  }
-];
+interface Product {
+  id: string;
+  name: string;
+  price: number;
+  stock: number;
+  categoryId: string;
+  image: string;
+  description: string;
+  createdAt: string;
+}
+
+interface Category {
+  id: string;
+  name: string;
+  createdAt: string;
+}
 
 const CatalogoPerfumes = () => {
   const navigate = useNavigate();
+  const [products, setProducts] = useState<Product[]>([]);
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  const addToCart = (product: any) => {
+  useEffect(() => {
+    loadData();
+    // Set up real-time subscription for products
+    const unsubscribe = supabaseService.subscribeToProducts((updatedProducts) => {
+      // Filter for Perfumes category
+      const perfumeCategory = categories.find(c => c.name === "Perfumes");
+      if (perfumeCategory) {
+        const filtered = updatedProducts
+          .map((p: any) => ({
+            id: p.id,
+            name: p.name,
+            price: p.price,
+            stock: p.sizes?.reduce((total: number, s: any) => total + s.stock, 0) || 0,
+            categoryId: p.category_id,
+            image: p.images[0] || "",
+            description: p.description,
+            createdAt: p.created_at
+          }))
+          .filter(p => p.categoryId === perfumeCategory.id);
+        setProducts(filtered);
+      }
+    });
+    return () => unsubscribe();
+  }, [categories]);
+
+  const loadData = async () => {
+    try {
+      // Try loading from Supabase first
+      const supabaseCategories = await supabaseService.getCategories();
+      if (supabaseCategories.length > 0) {
+        const mappedCategories = supabaseCategories.map((c: any) => ({
+          id: c.id,
+          name: c.name,
+          createdAt: c.created_at
+        }));
+        setCategories(mappedCategories);
+      }
+
+      // Fallback to localStorage
+      const storedCategories = localStorage.getItem("categories");
+      if (storedCategories && categories.length === 0) {
+        const categories: Category[] = JSON.parse(storedCategories);
+        setCategories(categories);
+      }
+
+      // Find Perfumes category
+      const perfumeCategory = categories.find(c => c.name === "Perfumes");
+      if (perfumeCategory) {
+        // Load products from Supabase first
+        const supabaseProducts = await supabaseService.getProducts();
+        if (supabaseProducts.length > 0) {
+          const filteredProducts = supabaseProducts
+            .map((p: any) => ({
+              id: p.id,
+              name: p.name,
+              price: p.price,
+              stock: p.sizes?.reduce((total: number, s: any) => total + s.stock, 0) || 0,
+              categoryId: p.category_id,
+              image: p.images[0] || "",
+              description: p.description,
+              createdAt: p.created_at
+            }))
+            .filter(p => p.categoryId === perfumeCategory.id);
+          setProducts(filteredProducts);
+        } else {
+          // Fallback to localStorage
+          const storedProducts = localStorage.getItem("products");
+          if (storedProducts) {
+            const allProducts: Product[] = JSON.parse(storedProducts);
+            const filteredProducts = allProducts.filter(p => p.categoryId === perfumeCategory.id);
+            setProducts(filteredProducts);
+          }
+        }
+      }
+    } catch (error) {
+      // Fallback to localStorage if Supabase fails
+      const storedCategories = localStorage.getItem("categories");
+      if (storedCategories) {
+        const categories: Category[] = JSON.parse(storedCategories);
+        setCategories(categories);
+      }
+      const perfumeCategory = categories.find(c => c.name === "Perfumes");
+      if (perfumeCategory) {
+        const storedProducts = localStorage.getItem("products");
+        if (storedProducts) {
+          const allProducts: Product[] = JSON.parse(storedProducts);
+          const filteredProducts = allProducts.filter(p => p.categoryId === perfumeCategory.id);
+          setProducts(filteredProducts);
+        }
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const addToCart = (product: Product) => {
     const cartItem = {
       productId: product.id,
       name: product.name,
@@ -74,53 +167,66 @@ const CatalogoPerfumes = () => {
 
       {/* Products Grid */}
       <div className="container mx-auto px-4 py-12">
-        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
-          {perfumeProducts.map((product, index) => (
-            <div key={index} className="bg-card border border-card-border rounded-xl overflow-hidden group">
-              <div className="relative h-64 overflow-hidden">
-                <img 
-                  src={product.image} 
-                  alt={product.name} 
-                  className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" 
-                />
-                <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
-                <div className="absolute bottom-4 left-4 right-4 text-white opacity-0 group-hover:opacity-100 transition-opacity">
-                  <p className="text-sm font-semibold">{product.price}</p>
+        {loading ? (
+          <div className="text-center py-12">
+            <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+            <p className="mt-2 text-muted-foreground">Cargando productos...</p>
+          </div>
+        ) : products.length > 0 ? (
+          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
+            {products.map((product) => (
+              <div key={product.id} className="bg-card border border-card-border rounded-xl overflow-hidden group">
+                <div className="relative h-64 overflow-hidden">
+                  <img 
+                    src={product.image} 
+                    alt={product.name} 
+                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" 
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+                  <div className="absolute bottom-4 left-4 right-4 text-white opacity-0 group-hover:opacity-100 transition-opacity">
+                    <p className="text-sm font-semibold">${product.price.toLocaleString('es-CL')}</p>
+                  </div>
+                  {/* Stock Status Badge */}
+                  <div className="absolute top-4 right-4">
+                    {product.stock > 0 ? (
+                      <span className="bg-green-500 text-white text-xs px-2 py-1 rounded-full font-semibold">
+                        EN STOCK
+                      </span>
+                    ) : (
+                      <span className="bg-red-500 text-white text-xs px-2 py-1 rounded-full font-semibold">
+                        SIN STOCK
+                      </span>
+                    )}
+                  </div>
                 </div>
-                {/* Stock Status Badge */}
-                <div className="absolute top-4 right-4">
-                  {product.stock ? (
-                    <span className="bg-green-500 text-white text-xs px-2 py-1 rounded-full font-semibold">
-                      EN STOCK
-                    </span>
-                  ) : (
-                    <span className="bg-red-500 text-white text-xs px-2 py-1 rounded-full font-semibold">
-                      SIN STOCK
-                    </span>
-                  )}
+                <div className="p-6">
+                  <h3 className="font-heading font-bold text-xl mb-2">{product.name}</h3>
+                  <p className="text-muted-foreground text-sm mb-4">{product.description}</p>
+                  <div className="flex gap-2">
+                    <button 
+                      className={`flex-1 py-2 rounded-lg font-semibold transition-opacity flex items-center justify-center gap-2 ${
+                        product.stock > 0
+                          ? 'bg-primary text-primary-foreground hover:opacity-90' 
+                          : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                      }`}
+                      onClick={() => product.stock > 0 && addToCart(product)}
+                      disabled={product.stock === 0}
+                    >
+                      <ShoppingCart className="h-4 w-4" />
+                      {product.stock > 0 ? 'Agregar al Carrito' : 'No Disponible'}
+                    </button>
+                  </div>
                 </div>
               </div>
-              <div className="p-6">
-                <h3 className="font-heading font-bold text-xl mb-2">{product.name}</h3>
-                <p className="text-muted-foreground text-sm mb-4">{product.description}</p>
-                <div className="flex gap-2">
-                  <button 
-                    className={`flex-1 py-2 rounded-lg font-semibold transition-opacity flex items-center justify-center gap-2 ${
-                      product.stock 
-                        ? 'bg-primary text-primary-foreground hover:opacity-90' 
-                        : 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                    }`}
-                    onClick={() => product.stock && addToCart(product)}
-                    disabled={!product.stock}
-                  >
-                    <ShoppingCart className="h-4 w-4" />
-                    {product.stock ? 'Agregar al Carrito' : 'No Disponible'}
-                  </button>
-                </div>
-              </div>
-            </div>
-          ))}
-        </div>
+            ))}
+          </div>
+        ) : (
+          <div className="text-center py-12">
+            <Package className="h-16 w-16 text-muted-foreground mx-auto mb-4" />
+            <h3 className="text-xl font-semibold mb-2">No hay productos disponibles</h3>
+            <p className="text-muted-foreground">Pronto agregaremos nuevos productos a esta categoría.</p>
+          </div>
+        )}
       </div>
     </div>
   );

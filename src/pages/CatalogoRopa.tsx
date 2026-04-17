@@ -1,6 +1,7 @@
 import { ArrowLeft, ShoppingBag, ShoppingCart, Package } from "lucide-react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { useState, useEffect } from "react";
+import { supabaseService } from "../services/supabaseService";
 
 interface Product {
   id: string;
@@ -24,19 +25,55 @@ const CatalogoRopa = () => {
   const location = useLocation();
   const [products, setProducts] = useState<Product[]>([]);
   const [category, setCategory] = useState<Category | null>(null);
+  const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     loadData();
-  }, []);
+    // Set up real-time subscription for products
+    const unsubscribe = supabaseService.subscribeToProducts((updatedProducts) => {
+      // Filter for Ropa Urbana category
+      const ropaCategory = categories.find(c => c.name === "Ropa Urbana");
+      if (ropaCategory) {
+        const filtered = updatedProducts
+          .map((p: any) => ({
+            id: p.id,
+            name: p.name,
+            price: p.price,
+            stock: p.sizes?.reduce((total: number, s: any) => total + s.stock, 0) || 0,
+            categoryId: p.category_id,
+            image: p.images[0] || "",
+            description: p.description,
+            createdAt: p.created_at
+          }))
+          .filter(p => p.categoryId === ropaCategory.id);
+        setProducts(filtered);
+      }
+    });
+    return () => unsubscribe();
+  }, [categories]);
 
   const loadData = async () => {
     try {
       // Get categoryId from navigation state or find "Ropa Urbana" category
       let targetCategoryId = location.state?.categoryId;
       
+      // Try loading from Supabase first
+      const supabaseCategories = await supabaseService.getCategories();
+      if (supabaseCategories.length > 0) {
+        const mappedCategories = supabaseCategories.map((c: any) => ({
+          id: c.id,
+          name: c.name,
+          createdAt: c.created_at
+        }));
+        setCategories(mappedCategories);
+        const ropaCategory = mappedCategories.find(c => c.name === "Ropa Urbana");
+        targetCategoryId = ropaCategory?.id;
+        setCategory(ropaCategory || null);
+      }
+
       if (!targetCategoryId) {
-        // Load categories and find "Ropa Urbana"
+        // Fallback to localStorage
         const storedCategories = localStorage.getItem("categories");
         if (storedCategories) {
           const categories: Category[] = JSON.parse(storedCategories);
@@ -47,7 +84,44 @@ const CatalogoRopa = () => {
       }
 
       if (targetCategoryId) {
-        // Load products filtered by categoryId
+        // Load products from Supabase first
+        const supabaseProducts = await supabaseService.getProducts();
+        if (supabaseProducts.length > 0) {
+          const filteredProducts = supabaseProducts
+            .map((p: any) => ({
+              id: p.id,
+              name: p.name,
+              price: p.price,
+              stock: p.sizes?.reduce((total: number, s: any) => total + s.stock, 0) || 0,
+              categoryId: p.category_id,
+              image: p.images[0] || "",
+              description: p.description,
+              createdAt: p.created_at
+            }))
+            .filter(p => p.categoryId === targetCategoryId);
+          setProducts(filteredProducts);
+        } else {
+          // Fallback to localStorage
+          const storedProducts = localStorage.getItem("products");
+          if (storedProducts) {
+            const allProducts: Product[] = JSON.parse(storedProducts);
+            const filteredProducts = allProducts.filter(p => p.categoryId === targetCategoryId);
+            setProducts(filteredProducts);
+          }
+        }
+      }
+    } catch (error) {
+      // Fallback to localStorage if Supabase fails
+      const storedCategories = localStorage.getItem("categories");
+      let targetCategoryId = location.state?.categoryId;
+      if (storedCategories) {
+        const categories: Category[] = JSON.parse(storedCategories);
+        const ropaCategory = categories.find(c => c.name === "Ropa Urbana");
+        targetCategoryId = ropaCategory?.id;
+        setCategory(ropaCategory || null);
+      }
+
+      if (targetCategoryId) {
         const storedProducts = localStorage.getItem("products");
         if (storedProducts) {
           const allProducts: Product[] = JSON.parse(storedProducts);
@@ -55,8 +129,6 @@ const CatalogoRopa = () => {
           setProducts(filteredProducts);
         }
       }
-    } catch (error) {
-      // Error logged silently for production security
     } finally {
       setLoading(false);
     }

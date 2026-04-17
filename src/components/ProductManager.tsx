@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { Package, Plus, Edit2, Trash2, Save, X, Image, DollarSign, Box, Tag, PlusCircle } from "lucide-react";
 import { formatCLP } from "../utils/currency";
+import { supabaseService } from "../services/supabaseService";
 
 interface Category {
   id: string;
@@ -59,10 +60,64 @@ const ProductManager = () => {
   useEffect(() => {
     loadCategories();
     loadProducts();
+    // Set up real-time subscriptions
+    const unsubscribeProducts = supabaseService.subscribeToProducts((updatedProducts) => {
+      const mappedProducts = updatedProducts.map((p: any) => ({
+        id: p.id,
+        name: p.name,
+        price: p.price,
+        categoryId: p.category_id,
+        images: p.images,
+        description: p.description,
+        sizes: p.sizes,
+        createdAt: p.created_at
+      }));
+      setProducts(mappedProducts);
+    });
+    const unsubscribeCategories = supabaseService.subscribeToCategories((updatedCategories) => {
+      const mappedCategories = updatedCategories.map((c: any) => ({
+        id: c.id,
+        name: c.name,
+        createdAt: c.created_at
+      }));
+      setCategories(mappedCategories);
+    });
+    return () => {
+      unsubscribeProducts();
+      unsubscribeCategories();
+    };
   }, []);
 
   const loadCategories = async () => {
     try {
+      // Try loading from Supabase first
+      const supabaseCategories = await supabaseService.getCategories();
+      if (supabaseCategories.length > 0) {
+        const mappedCategories = supabaseCategories.map((c: any) => ({
+          id: c.id,
+          name: c.name,
+          createdAt: c.created_at
+        }));
+        setCategories(mappedCategories);
+        // Also update localStorage as backup
+        localStorage.setItem("categories", JSON.stringify(mappedCategories));
+      } else {
+        // Fallback to localStorage
+        const storedCategories = localStorage.getItem("categories");
+        if (storedCategories) {
+          setCategories(JSON.parse(storedCategories));
+        } else {
+          const defaultCategories = [
+            { id: "1", name: "Ropa Urbana", createdAt: new Date().toISOString() },
+            { id: "2", name: "Zapatillas", createdAt: new Date().toISOString() },
+            { id: "3", name: "Perfumes", createdAt: new Date().toISOString() }
+          ];
+          localStorage.setItem("categories", JSON.stringify(defaultCategories));
+          setCategories(defaultCategories);
+        }
+      }
+    } catch (err) {
+      // Fallback to localStorage if Supabase fails
       const storedCategories = localStorage.getItem("categories");
       if (storedCategories) {
         setCategories(JSON.parse(storedCategories));
@@ -75,13 +130,47 @@ const ProductManager = () => {
         localStorage.setItem("categories", JSON.stringify(defaultCategories));
         setCategories(defaultCategories);
       }
-    } catch (err) {
-      setError("Error al cargar categorías");
     }
   };
 
   const loadProducts = async () => {
     try {
+      // Try loading from Supabase first
+      const supabaseProducts = await supabaseService.getProducts();
+      if (supabaseProducts.length > 0) {
+        const mappedProducts = supabaseProducts.map((p: any) => ({
+          id: p.id,
+          name: p.name,
+          price: p.price,
+          categoryId: p.category_id,
+          images: p.images,
+          description: p.description,
+          sizes: p.sizes,
+          createdAt: p.created_at
+        }));
+        setProducts(mappedProducts);
+        // Also update localStorage as backup
+        localStorage.setItem("products", JSON.stringify(mappedProducts));
+      } else {
+        // Fallback to localStorage
+        const storedProducts = localStorage.getItem("products");
+        if (storedProducts) {
+          const products = JSON.parse(storedProducts);
+          const migratedProducts = products.map((p: any) => {
+            if (p.image && !p.images) {
+              return {
+                ...p,
+                images: [p.image],
+                sizes: p.sizes || []
+              };
+            }
+            return p;
+          });
+          setProducts(migratedProducts);
+        }
+      }
+    } catch (err) {
+      // Fallback to localStorage if Supabase fails
       const storedProducts = localStorage.getItem("products");
       if (storedProducts) {
         const products = JSON.parse(storedProducts);
@@ -97,8 +186,6 @@ const ProductManager = () => {
         });
         setProducts(migratedProducts);
       }
-    } catch (err) {
-      setError("Error al cargar productos");
     }
   };
 
@@ -151,6 +238,67 @@ const ProductManager = () => {
       const productData = {
         name: formData.name.trim(),
         price,
+        category_id: formData.categoryId,
+        images: validImages,
+        description: formData.description.trim(),
+        sizes: formData.sizes,
+        createdAt: new Date().toISOString()
+      };
+
+      // Save to Supabase
+      if (editingProduct) {
+        await supabaseService.updateProduct(editingProduct.id, productData);
+        setSuccess("Producto actualizado exitosamente");
+        setEditingProduct(null);
+      } else {
+        await supabaseService.createProduct(productData);
+        setSuccess("Producto creado exitosamente");
+      }
+
+      // Also save to localStorage as backup
+      const localProductData = {
+        name: formData.name.trim(),
+        price,
+        categoryId: formData.categoryId,
+        images: validImages,
+        description: formData.description.trim(),
+        sizes: formData.sizes,
+        createdAt: new Date().toISOString()
+      };
+
+      if (editingProduct) {
+        const updatedProducts = products.map(p => 
+          p.id === editingProduct.id 
+            ? { ...localProductData, id: editingProduct.id, createdAt: editingProduct.createdAt }
+            : p
+        );
+        localStorage.setItem("products", JSON.stringify(updatedProducts));
+        setProducts(updatedProducts);
+      } else {
+        const newProduct = {
+          ...localProductData,
+          id: Date.now().toString()
+        };
+        const updatedProducts = [...products, newProduct];
+        localStorage.setItem("products", JSON.stringify(updatedProducts));
+        setProducts(updatedProducts);
+      }
+
+      // Reset form
+      setFormData({
+        name: "",
+        price: "",
+        categoryId: "",
+        images: [""],
+        description: "",
+        sizes: []
+      });
+      setActiveTab('products');
+    } catch (err) {
+      // Fallback to localStorage only if Supabase fails
+      const productData = {
+        name: formData.name.trim(),
+        price,
         categoryId: formData.categoryId,
         images: validImages,
         description: formData.description.trim(),
@@ -179,7 +327,6 @@ const ProductManager = () => {
         setSuccess("Producto creado exitosamente");
       }
 
-      // Reset form
       setFormData({
         name: "",
         price: "",
@@ -189,8 +336,6 @@ const ProductManager = () => {
         sizes: []
       });
       setActiveTab('products');
-    } catch (err) {
-      setError("Error al guardar el producto");
     } finally {
       setLoading(false);
     }
@@ -209,6 +354,15 @@ const ProductManager = () => {
     }
 
     try {
+      const categoryData = {
+        name: categoryName.trim(),
+        createdAt: new Date().toISOString()
+      };
+
+      // Save to Supabase
+      await supabaseService.createCategory(categoryData);
+
+      // Also save to localStorage as backup
       const newCategory = {
         id: Date.now().toString(),
         name: categoryName.trim(),
@@ -221,7 +375,18 @@ const ProductManager = () => {
       setSuccess("Categoría creada exitosamente");
       setCategoryName("");
     } catch (err) {
-      setError("Error al crear la categoría");
+      // Fallback to localStorage only if Supabase fails
+      const newCategory = {
+        id: Date.now().toString(),
+        name: categoryName.trim(),
+        createdAt: new Date().toISOString()
+      };
+
+      const updatedCategories = [...categories, newCategory];
+      localStorage.setItem("categories", JSON.stringify(updatedCategories));
+      setCategories(updatedCategories);
+      setSuccess("Categoría creada exitosamente");
+      setCategoryName("");
     } finally {
       setLoading(false);
     }
@@ -231,12 +396,20 @@ const ProductManager = () => {
     if (!confirm("¿Está seguro de eliminar este producto?")) return;
 
     try {
+      // Delete from Supabase
+      await supabaseService.deleteProduct(productId);
+
+      // Also delete from localStorage as backup
       const updatedProducts = products.filter(p => p.id !== productId);
       localStorage.setItem("products", JSON.stringify(updatedProducts));
       setProducts(updatedProducts);
       setSuccess("Producto eliminado exitosamente");
     } catch (err) {
-      setError("Error al eliminar el producto");
+      // Fallback to localStorage only if Supabase fails
+      const updatedProducts = products.filter(p => p.id !== productId);
+      localStorage.setItem("products", JSON.stringify(updatedProducts));
+      setProducts(updatedProducts);
+      setSuccess("Producto eliminado exitosamente");
     }
   };
 
@@ -244,6 +417,10 @@ const ProductManager = () => {
     if (!confirm("¿Está seguro de eliminar esta categoría? Los productos asociados serán eliminados.")) return;
 
     try {
+      // Delete from Supabase
+      await supabaseService.deleteCategory(categoryId);
+
+      // Also delete from localStorage as backup
       const updatedCategories = categories.filter(c => c.id !== categoryId);
       const updatedProducts = products.filter(p => p.categoryId !== categoryId);
       
@@ -254,7 +431,16 @@ const ProductManager = () => {
       setProducts(updatedProducts);
       setSuccess("Categoría eliminada exitosamente");
     } catch (err) {
-      setError("Error al eliminar la categoría");
+      // Fallback to localStorage only if Supabase fails
+      const updatedCategories = categories.filter(c => c.id !== categoryId);
+      const updatedProducts = products.filter(p => p.categoryId !== categoryId);
+      
+      localStorage.setItem("categories", JSON.stringify(updatedCategories));
+      localStorage.setItem("products", JSON.stringify(updatedProducts));
+      
+      setCategories(updatedCategories);
+      setProducts(updatedProducts);
+      setSuccess("Categoría eliminada exitosamente");
     }
   };
 

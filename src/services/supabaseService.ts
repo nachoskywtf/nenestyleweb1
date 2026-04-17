@@ -21,6 +21,28 @@ export interface Availability {
   created_at: string;
 }
 
+export interface Category {
+  id: string;
+  name: string;
+  created_at: string;
+}
+
+export interface ProductSize {
+  size: string;
+  stock: number;
+}
+
+export interface Product {
+  id: string;
+  name: string;
+  price: number;
+  category_id: string;
+  images: string[];
+  description: string;
+  sizes?: ProductSize[];
+  created_at: string;
+}
+
 export const supabaseService = {
   async getBookings(): Promise<Booking[]> {
     try {
@@ -36,6 +58,12 @@ export const supabaseService = {
       return [];
     }
   },
+
+
+
+
+
+
 
   async createBooking(booking: Omit<Booking, 'id' | 'created_at'>): Promise<Booking | null> {
     try {
@@ -176,6 +204,164 @@ export const supabaseService = {
         async () => {
           const availability = await this.getAvailability(date);
           callback(availability);
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  },
+
+  // Product methods
+  async getProducts(): Promise<Product[]> {
+    try {
+      const { data, error } = await supabase
+        .from('products')
+        .select('*')
+        .order('created_at', { ascending: false });
+      
+      if (error) throw error;
+      return data || [];
+    } catch (error) {
+      console.error('Error fetching products:', error);
+      return [];
+    }
+  },
+
+  async createProduct(product: Omit<Product, 'id' | 'created_at'>): Promise<Product | null> {
+    try {
+      const { data, error } = await supabase
+        .from('products')
+        .insert([{
+          ...product,
+          id: crypto.randomUUID(),
+          created_at: new Date().toISOString()
+        }])
+        .select()
+        .single();
+
+      if (error) throw error;
+      return data;
+    } catch (error: any) {
+      console.error('Error creating product:', error);
+      throw error;
+    }
+  },
+
+  async updateProduct(id: string, product: Partial<Product>): Promise<void> {
+    try {
+      const { error } = await supabase
+        .from('products')
+        .update(product)
+        .eq('id', id);
+      
+      if (error) throw error;
+    } catch (error) {
+      console.error('Error updating product:', error);
+      throw error;
+    }
+  },
+
+  async deleteProduct(id: string): Promise<void> {
+    try {
+      const { error } = await supabase
+        .from('products')
+        .delete()
+        .eq('id', id);
+      
+      if (error) throw error;
+    } catch (error) {
+      console.error('Error deleting product:', error);
+      throw error;
+    }
+  },
+
+  subscribeToProducts(callback: (products: Product[]) => void) {
+    const channel = supabase
+      .channel('products-changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'products'
+        },
+        async () => {
+          const products = await this.getProducts();
+          callback(products);
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  },
+
+  // Category methods
+  async getCategories(): Promise<Category[]> {
+    try {
+      const { data, error } = await supabase
+        .from('categories')
+        .select('*')
+        .order('created_at', { ascending: false });
+      
+      if (error) throw error;
+      return data || [];
+    } catch (error) {
+      console.error('Error fetching categories:', error);
+      return [];
+    }
+  },
+
+  async createCategory(category: Omit<Category, 'id' | 'created_at'>): Promise<Category | null> {
+    try {
+      const { data, error } = await supabase
+        .from('categories')
+        .insert([{
+          ...category,
+          id: crypto.randomUUID(),
+          created_at: new Date().toISOString()
+        }])
+        .select()
+        .single();
+
+      if (error) throw error;
+      return data;
+    } catch (error: any) {
+      console.error('Error creating category:', error);
+      throw error;
+    }
+  },
+
+  async deleteCategory(id: string): Promise<void> {
+    try {
+      const { error } = await supabase
+        .from('categories')
+        .delete()
+        .eq('id', id);
+      
+      if (error) throw error;
+    } catch (error) {
+      console.error('Error deleting category:', error);
+      throw error;
+    }
+  },
+
+  subscribeToCategories(callback: (categories: Category[]) => void) {
+    const channel = supabase
+      .channel('categories-changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'categories'
+        },
+        async () => {
+          const categories = await this.getCategories();
+          callback(categories);
         }
       )
       .subscribe();
