@@ -1,7 +1,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { ShoppingBag, Footprints, Package, Box } from "lucide-react";
-import { supabaseService } from "../services/supabaseService";
 
 interface Category {
   id: string;
@@ -30,102 +29,30 @@ const Store = () => {
     loadData();
   }, []);
 
-  useEffect(() => {
-    // Set up real-time subscription for categories
-    const unsubscribeCategories = supabaseService.subscribeToCategories((updatedCategories) => {
-      const mappedCategories = updatedCategories.map((c: any) => ({
-        id: c.id,
-        name: c.name,
-        createdAt: c.created_at
-      }));
-      setCategories(mappedCategories);
-    });
-
-    // Set up real-time subscription for products
-    const unsubscribeProducts = supabaseService.subscribeToProducts((updatedProducts) => {
-      const mappedProducts = updatedProducts.map((p: any) => ({
-        id: p.id,
-        name: p.name,
-        price: p.price,
-        categoryId: p.category_id,
-        images: p.images,
-        description: p.description,
-        sizes: p.sizes,
-        createdAt: p.created_at
-      }));
-      setProducts(mappedProducts);
-    });
-
-    return () => {
-      unsubscribeCategories();
-      unsubscribeProducts();
-    };
-  }, []);
-
   const loadData = async () => {
     try {
-      let loadedCategories: Category[] = [];
-      
-      // Try loading categories from Supabase first
-      const supabaseCategories = await supabaseService.getCategories();
-      if (supabaseCategories.length > 0) {
-        loadedCategories = supabaseCategories.map((c: any) => ({
-          id: c.id,
-          name: c.name,
-          createdAt: c.created_at
-        }));
-        setCategories(loadedCategories);
-      }
-
-      // Fallback to localStorage if Supabase has no categories
-      if (loadedCategories.length === 0) {
-        const storedCategories = localStorage.getItem("categories");
-        if (storedCategories) {
-          loadedCategories = JSON.parse(storedCategories);
-          setCategories(loadedCategories);
-        } else {
-          // Default categories if none exist
-          const defaultCategories = [
-            { id: "1", name: "Ropa Urbana", createdAt: new Date().toISOString() },
-            { id: "2", name: "Zapatillas", createdAt: new Date().toISOString() },
-            { id: "3", name: "Perfumes", createdAt: new Date().toISOString() }
-          ];
-          localStorage.setItem("categories", JSON.stringify(defaultCategories));
-          setCategories(defaultCategories);
-        }
-      }
-
-      // Try loading products from Supabase first
-      const supabaseProducts = await supabaseService.getProducts();
-      if (supabaseProducts.length > 0) {
-        const mappedProducts = supabaseProducts.map((p: any) => ({
-          id: p.id,
-          name: p.name,
-          price: p.price,
-          categoryId: p.category_id,
-          images: p.images,
-          description: p.description,
-          sizes: p.sizes,
-          createdAt: p.created_at
-        }));
-        setProducts(mappedProducts);
-      } else {
-        // Fallback to localStorage
-        const storedProducts = localStorage.getItem("products");
-        if (storedProducts) {
-          setProducts(JSON.parse(storedProducts));
-        }
-      }
-    } catch (error) {
-      // Fallback to localStorage if Supabase fails
+      // Load categories
       const storedCategories = localStorage.getItem("categories");
       if (storedCategories) {
         setCategories(JSON.parse(storedCategories));
+      } else {
+        // Default categories if none exist
+        const defaultCategories = [
+          { id: "1", name: "Ropa Urbana", createdAt: new Date().toISOString() },
+          { id: "2", name: "Zapatillas", createdAt: new Date().toISOString() },
+          { id: "3", name: "Perfumes", createdAt: new Date().toISOString() }
+        ];
+        localStorage.setItem("categories", JSON.stringify(defaultCategories));
+        setCategories(defaultCategories);
       }
+
+      // Load products
       const storedProducts = localStorage.getItem("products");
       if (storedProducts) {
         setProducts(JSON.parse(storedProducts));
       }
+    } catch (error) {
+      // Error logged silently for production security
     } finally {
       setLoading(false);
     }
