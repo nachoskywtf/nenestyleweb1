@@ -231,6 +231,9 @@ export const supabaseService = {
 
   async createProduct(product: Omit<Product, 'id' | 'created_at'>): Promise<Product | null> {
     try {
+      console.log('supabaseService: Starting createProduct', product);
+      console.log('supabaseService: Supabase URL:', import.meta.env.VITE_SUPABASE_URL);
+      
       const { data, error } = await supabase
         .from('products')
         .insert([{
@@ -241,10 +244,23 @@ export const supabaseService = {
         .select()
         .single();
 
-      if (error) throw error;
+      console.log('supabaseService: Insert result', { data, error });
+
+      if (error) {
+        console.error('supabaseService: Insert error details:', error);
+        throw error;
+      }
+      
+      console.log('supabaseService: Product created successfully', data);
       return data;
     } catch (error: any) {
-      console.error('Error creating product:', error);
+      console.error('supabaseService: Error creating product:', error);
+      console.error('supabaseService: Error details:', {
+        message: error.message,
+        code: error.code,
+        details: error.details,
+        hint: error.hint
+      });
       throw error;
     }
   },

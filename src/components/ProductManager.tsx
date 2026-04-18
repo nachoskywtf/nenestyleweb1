@@ -298,7 +298,11 @@ const ProductManager = () => {
         sizes: []
       });
       setActiveTab('products');
-    } catch (err) {
+    } catch (err: any) {
+      console.error('ProductManager: Supabase error:', err);
+      // Display Supabase error in UI
+      setError(`Error de Supabase: ${err.message || err.toString()}`);
+      
       // Fallback to localStorage only if Supabase fails
       const productData = {
         name: formData.name.trim(),
@@ -318,7 +322,7 @@ const ProductManager = () => {
         );
         localStorage.setItem("products", JSON.stringify(updatedProducts));
         setProducts(updatedProducts);
-        setSuccess("Producto actualizado exitosamente");
+        setSuccess("Producto actualizado exitosamente (localStorage fallback)");
         setEditingProduct(null);
       } else {
         const newProduct = {
@@ -328,7 +332,7 @@ const ProductManager = () => {
         const updatedProducts = [...products, newProduct];
         localStorage.setItem("products", JSON.stringify(updatedProducts));
         setProducts(updatedProducts);
-        setSuccess("Producto creado exitosamente");
+        setSuccess("Producto creado exitosamente (localStorage fallback)");
       }
 
       setFormData({
