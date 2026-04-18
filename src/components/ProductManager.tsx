@@ -241,8 +241,7 @@ const ProductManager = () => {
         category_id: formData.categoryId,
         images: validImages,
         description: formData.description.trim(),
-        sizes: formData.sizes,
-        createdAt: new Date().toISOString()
+        sizes: formData.sizes
       };
 
       console.log('ProductManager: Attempting to save to Supabase', productData);
