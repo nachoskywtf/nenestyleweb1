@@ -26,6 +26,8 @@ const CatalogoZapatillas = () => {
   const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(true);
 
+  console.log('CatalogoZapatillas: Component mounted');
+
   useEffect(() => {
     loadData();
   }, []);
