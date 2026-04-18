@@ -58,26 +58,30 @@ const CatalogoPerfumes = () => {
 
   const loadData = async () => {
     try {
+      let loadedCategories: Category[] = [];
+      
       // Try loading from Supabase first
       const supabaseCategories = await supabaseService.getCategories();
       if (supabaseCategories.length > 0) {
-        const mappedCategories = supabaseCategories.map((c: any) => ({
+        loadedCategories = supabaseCategories.map((c: any) => ({
           id: c.id,
           name: c.name,
           createdAt: c.created_at
         }));
-        setCategories(mappedCategories);
+        setCategories(loadedCategories);
       }
 
-      // Fallback to localStorage
-      const storedCategories = localStorage.getItem("categories");
-      if (storedCategories && categories.length === 0) {
-        const categories: Category[] = JSON.parse(storedCategories);
-        setCategories(categories);
+      // Fallback to localStorage if Supabase has no categories
+      if (loadedCategories.length === 0) {
+        const storedCategories = localStorage.getItem("categories");
+        if (storedCategories) {
+          loadedCategories = JSON.parse(storedCategories);
+          setCategories(loadedCategories);
+        }
       }
 
       // Find Perfumes category
-      const perfumeCategory = categories.find(c => c.name === "Perfumes");
+      const perfumeCategory = loadedCategories.find(c => c.name === "Perfumes");
       if (perfumeCategory) {
         // Load products from Supabase first
         const supabaseProducts = await supabaseService.getProducts();
@@ -109,16 +113,16 @@ const CatalogoPerfumes = () => {
       // Fallback to localStorage if Supabase fails
       const storedCategories = localStorage.getItem("categories");
       if (storedCategories) {
-        const categories: Category[] = JSON.parse(storedCategories);
-        setCategories(categories);
-      }
-      const perfumeCategory = categories.find(c => c.name === "Perfumes");
-      if (perfumeCategory) {
-        const storedProducts = localStorage.getItem("products");
-        if (storedProducts) {
-          const allProducts: Product[] = JSON.parse(storedProducts);
-          const filteredProducts = allProducts.filter(p => p.categoryId === perfumeCategory.id);
-          setProducts(filteredProducts);
+        const loadedCategories = JSON.parse(storedCategories);
+        setCategories(loadedCategories);
+        const perfumeCategory = loadedCategories.find(c => c.name === "Perfumes");
+        if (perfumeCategory) {
+          const storedProducts = localStorage.getItem("products");
+          if (storedProducts) {
+            const allProducts: Product[] = JSON.parse(storedProducts);
+            const filteredProducts = allProducts.filter(p => p.categoryId === perfumeCategory.id);
+            setProducts(filteredProducts);
+          }
         }
       }
     } finally {

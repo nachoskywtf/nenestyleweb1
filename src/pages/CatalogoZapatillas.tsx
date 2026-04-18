@@ -58,26 +58,30 @@ const CatalogoZapatillas = () => {
 
   const loadData = async () => {
     try {
+      let loadedCategories: Category[] = [];
+      
       // Try loading from Supabase first
       const supabaseCategories = await supabaseService.getCategories();
       if (supabaseCategories.length > 0) {
-        const mappedCategories = supabaseCategories.map((c: any) => ({
+        loadedCategories = supabaseCategories.map((c: any) => ({
           id: c.id,
           name: c.name,
           createdAt: c.created_at
         }));
-        setCategories(mappedCategories);
+        setCategories(loadedCategories);
       }
 
-      // Fallback to localStorage
-      const storedCategories = localStorage.getItem("categories");
-      if (storedCategories && categories.length === 0) {
-        const categories: Category[] = JSON.parse(storedCategories);
-        setCategories(categories);
+      // Fallback to localStorage if Supabase has no categories
+      if (loadedCategories.length === 0) {
+        const storedCategories = localStorage.getItem("categories");
+        if (storedCategories) {
+          loadedCategories = JSON.parse(storedCategories);
+          setCategories(loadedCategories);
+        }
       }
 
       // Find Zapatillas category
-      const zapatillaCategory = categories.find(c => c.name === "Zapatillas");
+      const zapatillaCategory = loadedCategories.find(c => c.name === "Zapatillas");
       if (zapatillaCategory) {
         // Load products from Supabase first
         const supabaseProducts = await supabaseService.getProducts();
@@ -109,16 +113,16 @@ const CatalogoZapatillas = () => {
       // Fallback to localStorage if Supabase fails
       const storedCategories = localStorage.getItem("categories");
       if (storedCategories) {
-        const categories: Category[] = JSON.parse(storedCategories);
-        setCategories(categories);
-      }
-      const zapatillaCategory = categories.find(c => c.name === "Zapatillas");
-      if (zapatillaCategory) {
-        const storedProducts = localStorage.getItem("products");
-        if (storedProducts) {
-          const allProducts: Product[] = JSON.parse(storedProducts);
-          const filteredProducts = allProducts.filter(p => p.categoryId === zapatillaCategory.id);
-          setProducts(filteredProducts);
+        const loadedCategories = JSON.parse(storedCategories);
+        setCategories(loadedCategories);
+        const zapatillaCategory = loadedCategories.find(c => c.name === "Zapatillas");
+        if (zapatillaCategory) {
+          const storedProducts = localStorage.getItem("products");
+          if (storedProducts) {
+            const allProducts: Product[] = JSON.parse(storedProducts);
+            const filteredProducts = allProducts.filter(p => p.categoryId === zapatillaCategory.id);
+            setProducts(filteredProducts);
+          }
         }
       }
     } finally {

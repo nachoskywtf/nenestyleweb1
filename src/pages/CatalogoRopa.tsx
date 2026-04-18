@@ -60,19 +60,19 @@ const CatalogoRopa = () => {
 
   const loadData = async () => {
     try {
-      // Get categoryId from navigation state or find "Ropa Urbana" category
+      let loadedCategories: Category[] = [];
       let targetCategoryId = location.state?.categoryId;
       
       // Try loading from Supabase first
       const supabaseCategories = await supabaseService.getCategories();
       if (supabaseCategories.length > 0) {
-        const mappedCategories = supabaseCategories.map((c: any) => ({
+        loadedCategories = supabaseCategories.map((c: any) => ({
           id: c.id,
           name: c.name,
           createdAt: c.created_at
         }));
-        setCategories(mappedCategories);
-        const ropaCategory = mappedCategories.find(c => c.name === "Ropa Urbana");
+        setCategories(loadedCategories);
+        const ropaCategory = loadedCategories.find(c => c.name === "Ropa Urbana");
         targetCategoryId = ropaCategory?.id;
         setCategory(ropaCategory || null);
       }
@@ -81,8 +81,9 @@ const CatalogoRopa = () => {
         // Fallback to localStorage
         const storedCategories = localStorage.getItem("categories");
         if (storedCategories) {
-          const categories: Category[] = JSON.parse(storedCategories);
-          const ropaCategory = categories.find(c => c.name === "Ropa Urbana");
+          loadedCategories = JSON.parse(storedCategories);
+          setCategories(loadedCategories);
+          const ropaCategory = loadedCategories.find(c => c.name === "Ropa Urbana");
           targetCategoryId = ropaCategory?.id;
           setCategory(ropaCategory || null);
         }
@@ -118,10 +119,12 @@ const CatalogoRopa = () => {
     } catch (error) {
       // Fallback to localStorage if Supabase fails
       const storedCategories = localStorage.getItem("categories");
+      let loadedCategories: Category[] = [];
       let targetCategoryId = location.state?.categoryId;
       if (storedCategories) {
-        const categories: Category[] = JSON.parse(storedCategories);
-        const ropaCategory = categories.find(c => c.name === "Ropa Urbana");
+        loadedCategories = JSON.parse(storedCategories);
+        setCategories(loadedCategories);
+        const ropaCategory = loadedCategories.find(c => c.name === "Ropa Urbana");
         targetCategoryId = ropaCategory?.id;
         setCategory(ropaCategory || null);
       }
