@@ -245,13 +245,17 @@ const ProductManager = () => {
         createdAt: new Date().toISOString()
       };
 
+      console.log('ProductManager: Attempting to save to Supabase', productData);
+
       // Save to Supabase
       if (editingProduct) {
         await supabaseService.updateProduct(editingProduct.id, productData);
+        console.log('ProductManager: Product updated in Supabase');
         setSuccess("Producto actualizado exitosamente");
         setEditingProduct(null);
       } else {
         await supabaseService.createProduct(productData);
+        console.log('ProductManager: Product created in Supabase');
         setSuccess("Producto creado exitosamente");
       }
 
