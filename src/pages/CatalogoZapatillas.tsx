@@ -58,10 +58,13 @@ const CatalogoZapatillas = () => {
 
   const loadData = async () => {
     try {
+      console.log('CatalogoZapatillas: Starting loadData');
       let loadedCategories: Category[] = [];
       
       // Try loading from Supabase first
+      console.log('CatalogoZapatillas: Fetching categories from Supabase');
       const supabaseCategories = await supabaseService.getCategories();
+      console.log('CatalogoZapatillas: Supabase categories:', supabaseCategories);
       if (supabaseCategories.length > 0) {
         loadedCategories = supabaseCategories.map((c: any) => ({
           id: c.id,
@@ -69,22 +72,28 @@ const CatalogoZapatillas = () => {
           createdAt: c.created_at
         }));
         setCategories(loadedCategories);
+        console.log('CatalogoZapatillas: Loaded categories from Supabase:', loadedCategories);
       }
 
       // Fallback to localStorage if Supabase has no categories
       if (loadedCategories.length === 0) {
+        console.log('CatalogoZapatillas: No categories from Supabase, trying localStorage');
         const storedCategories = localStorage.getItem("categories");
         if (storedCategories) {
           loadedCategories = JSON.parse(storedCategories);
           setCategories(loadedCategories);
+          console.log('CatalogoZapatillas: Loaded categories from localStorage:', loadedCategories);
         }
       }
 
       // Find Zapatillas category
       const zapatillaCategory = loadedCategories.find(c => c.name === "Zapatillas");
+      console.log('CatalogoZapatillas: Zapatillas category found:', zapatillaCategory);
       if (zapatillaCategory) {
         // Load products from Supabase first
+        console.log('CatalogoZapatillas: Fetching products from Supabase');
         const supabaseProducts = await supabaseService.getProducts();
+        console.log('CatalogoZapatillas: Supabase products:', supabaseProducts);
         if (supabaseProducts.length > 0) {
           const filteredProducts = supabaseProducts
             .map((p: any) => ({
@@ -98,18 +107,24 @@ const CatalogoZapatillas = () => {
               createdAt: p.created_at
             }))
             .filter(p => p.categoryId === zapatillaCategory.id);
+          console.log('CatalogoZapatillas: Filtered products:', filteredProducts);
           setProducts(filteredProducts);
         } else {
           // Fallback to localStorage
+          console.log('CatalogoZapatillas: No products from Supabase, trying localStorage');
           const storedProducts = localStorage.getItem("products");
           if (storedProducts) {
             const allProducts: Product[] = JSON.parse(storedProducts);
             const filteredProducts = allProducts.filter(p => p.categoryId === zapatillaCategory.id);
+            console.log('CatalogoZapatillas: Filtered products from localStorage:', filteredProducts);
             setProducts(filteredProducts);
           }
         }
+      } else {
+        console.log('CatalogoZapatillas: Zapatillas category NOT found');
       }
     } catch (error) {
+      console.error('CatalogoZapatillas: Error in loadData:', error);
       // Fallback to localStorage if Supabase fails
       const storedCategories = localStorage.getItem("categories");
       if (storedCategories) {
@@ -126,6 +141,7 @@ const CatalogoZapatillas = () => {
         }
       }
     } finally {
+      console.log('CatalogoZapatillas: Loading complete');
       setLoading(false);
     }
   };
