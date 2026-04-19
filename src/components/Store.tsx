@@ -307,10 +307,11 @@ const Store = () => {
         {/* Products Grid */}
         {filteredProducts?.length > 0 ? (
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-6">
-            {filteredProducts?.map((product) => (
+            {filteredProducts?.map((product, index) => (
               <div
                 key={product?.id}
-                className="bg-card border border-card-border rounded-xl overflow-hidden group transform transition-all hover:scale-105 hover:shadow-xl"
+                className="bg-card border border-card-border rounded-xl overflow-hidden group transform transition-all hover:scale-105 hover:shadow-xl animate-fade-in-up"
+                style={{ animationDelay: `${index * 50}ms` }}
               >
                 <div
                   onClick={() => navigate(`/product/${product?.id}`)}
