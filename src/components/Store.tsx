@@ -26,6 +26,7 @@ const Store = () => {
   const [categories, setCategories] = useState<Category[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
+  const [showSkeleton, setShowSkeleton] = useState(false);
   const [updateNotification, setUpdateNotification] = useState<string | null>(null);
   const [subscriptionLogs, setSubscriptionLogs] = useState<string[]>([]);
   
@@ -36,6 +37,15 @@ const Store = () => {
 
   useEffect(() => {
     loadData();
+    
+    // Show skeleton after 0.5s if data not loaded
+    const skeletonTimeout = setTimeout(() => {
+      if (loading) {
+        setShowSkeleton(true);
+      }
+    }, 500);
+
+    return () => clearTimeout(skeletonTimeout);
   }, []);
 
   useEffect(() => {
@@ -206,10 +216,25 @@ const Store = () => {
           <h2 className="text-3xl md:text-4xl font-heading font-bold text-center mb-4">Tienda</h2>
           <p className="text-muted-foreground text-center mb-12">Completa tu estilo con nosotros.</p>
           
-          <div className="flex flex-col justify-center items-center py-20">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mb-4"></div>
-            <p className="mt-2 text-muted-foreground">Cargando productos...</p>
-          </div>
+          {showSkeleton ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {[1, 2, 3, 4, 5, 6].map((i) => (
+                <div key={i} className="bg-card rounded-lg overflow-hidden animate-pulse">
+                  <div className="h-48 bg-muted"></div>
+                  <div className="p-4">
+                    <div className="h-4 bg-muted rounded mb-2"></div>
+                    <div className="h-3 bg-muted rounded w-3/4 mb-2"></div>
+                    <div className="h-3 bg-muted rounded w-1/2"></div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="flex flex-col justify-center items-center py-20">
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mb-4"></div>
+              <p className="mt-2 text-muted-foreground">Cargando productos...</p>
+            </div>
+          )}
         </div>
       </section>
     );
