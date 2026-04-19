@@ -46,21 +46,25 @@ const Store = () => {
         'postgres_changes',
         { event: '*', schema: 'public', table: 'products' },
         async (payload) => {
-          console.log('Store: Product change received', payload);
-          const products = await supabaseService.getProducts();
-          const mappedProducts = products?.map((p: any) => ({
-            id: p.id,
-            name: p.name,
-            price: p.price,
-            categoryId: p.category_id,
-            images: p.images,
-            description: p.description,
-            sizes: p.sizes,
-            createdAt: p.created_at
-          })) || [];
-          setProducts(mappedProducts);
-          setUpdateNotification(`Productos actualizados: ${mappedProducts.length} productos`);
-          setTimeout(() => setUpdateNotification(null), 3000);
+          try {
+            console.log('Store: Product change received', payload);
+            const products = await supabaseService.getProducts();
+            const mappedProducts = products?.map((p: any) => ({
+              id: p.id,
+              name: p.name,
+              price: p.price,
+              categoryId: p.category_id,
+              images: p.images,
+              description: p.description,
+              sizes: p.sizes,
+              createdAt: p.created_at
+            })) || [];
+            setProducts(mappedProducts);
+            setUpdateNotification(`Productos actualizados: ${mappedProducts.length} productos`);
+            setTimeout(() => setUpdateNotification(null), 3000);
+          } catch (error) {
+            console.error('Error processing product update:', error);
+          }
         }
       )
       .subscribe();
@@ -72,21 +76,29 @@ const Store = () => {
         'postgres_changes',
         { event: '*', schema: 'public', table: 'categories' },
         async (payload) => {
-          console.log('Store: Category change received', payload);
-          const categories = await supabaseService.getCategories();
-          const mappedCategories = categories?.map((c: any) => ({
-            id: c.id,
-            name: c.name,
-            createdAt: c.created_at
-          })) || [];
-          setCategories(mappedCategories);
+          try {
+            console.log('Store: Category change received', payload);
+            const categories = await supabaseService.getCategories();
+            const mappedCategories = categories?.map((c: any) => ({
+              id: c.id,
+              name: c.name,
+              createdAt: c.created_at
+            })) || [];
+            setCategories(mappedCategories);
+          } catch (error) {
+            console.error('Error processing category update:', error);
+          }
         }
       )
       .subscribe();
 
     return () => {
-      supabase.removeChannel(productChannel);
-      supabase.removeChannel(categoryChannel);
+      try {
+        supabase.removeChannel(productChannel);
+        supabase.removeChannel(categoryChannel);
+      } catch (error) {
+        console.error('Error removing channels:', error);
+      }
     };
   }, []);
 
@@ -189,11 +201,14 @@ const Store = () => {
 
   if (loading) {
     return (
-      <section id="tienda" className="py-20">
+      <section id="tienda" className="py-20 bg-secondary/30 min-h-screen">
         <div className="container mx-auto px-4">
-          <div className="text-center">
-            <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-            <p className="mt-2 text-muted-foreground">Cargando tienda...</p>
+          <h2 className="text-3xl md:text-4xl font-heading font-bold text-center mb-4">Tienda</h2>
+          <p className="text-muted-foreground text-center mb-12">Completa tu estilo con nosotros.</p>
+          
+          <div className="flex flex-col justify-center items-center py-20">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mb-4"></div>
+            <p className="mt-2 text-muted-foreground">Cargando productos...</p>
           </div>
         </div>
       </section>
