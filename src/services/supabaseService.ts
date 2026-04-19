@@ -294,6 +294,7 @@ export const supabaseService = {
   },
 
   subscribeToProducts(callback: (products: Product[]) => void) {
+    console.log('supabaseService: Setting up product subscription');
     const channel = supabase
       .channel('products-changes')
       .on(
@@ -303,14 +304,19 @@ export const supabaseService = {
           schema: 'public',
           table: 'products'
         },
-        async () => {
+        async (payload) => {
+          console.log('supabaseService: Product subscription received event', payload);
           const products = await this.getProducts();
+          console.log('supabaseService: Fetched products after event', products);
           callback(products);
         }
       )
-      .subscribe();
+      .subscribe((status) => {
+        console.log('supabaseService: Product subscription status', status);
+      });
 
     return () => {
+      console.log('supabaseService: Removing product subscription');
       supabase.removeChannel(channel);
     };
   },
@@ -366,6 +372,7 @@ export const supabaseService = {
   },
 
   subscribeToCategories(callback: (categories: Category[]) => void) {
+    console.log('supabaseService: Setting up category subscription');
     const channel = supabase
       .channel('categories-changes')
       .on(
@@ -375,14 +382,19 @@ export const supabaseService = {
           schema: 'public',
           table: 'categories'
         },
-        async () => {
+        async (payload) => {
+          console.log('supabaseService: Category subscription received event', payload);
           const categories = await this.getCategories();
+          console.log('supabaseService: Fetched categories after event', categories);
           callback(categories);
         }
       )
-      .subscribe();
+      .subscribe((status) => {
+        console.log('supabaseService: Category subscription status', status);
+      });
 
     return () => {
+      console.log('supabaseService: Removing category subscription');
       supabase.removeChannel(channel);
     };
   }
