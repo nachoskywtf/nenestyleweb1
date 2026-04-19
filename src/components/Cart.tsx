@@ -36,14 +36,10 @@ const Cart = () => {
   }, [cart]);
 
   const loadCart = () => {
-    const storedCart = localStorage.getItem("cart");
-    if (storedCart) {
-      setCart(JSON.parse(storedCart));
-    }
+    // Cart is now managed in memory only, no localStorage
   };
 
   const saveCart = () => {
-    localStorage.setItem("cart", JSON.stringify(cart));
     window.dispatchEvent(new CustomEvent('cart-updated'));
   };
 
@@ -80,69 +76,28 @@ const Cart = () => {
   };
 
   const changeQuantity = (productId: string, selectedSize: string | undefined, change: number) => {
-    // Load products to check stock
-    const storedProducts = localStorage.getItem("products");
-    if (!storedProducts) {
+    const cartItem = cart.find(item =>
+      item.productId === productId && item.selectedSize === selectedSize
+    );
+
+    if (!cartItem) {
       return;
     }
 
-    const products = JSON.parse(storedProducts);
-    const product = products.find((p: any) => p.id === productId);
+    const newQuantity = cartItem.quantity + change;
 
-    if (!product) {
+    if (newQuantity <= 0) {
+      removeItem(productId, selectedSize);
       return;
     }
 
-    // Check stock for products with sizes
-    if (product.sizes && product.sizes.length > 0 && selectedSize) {
-      const sizeData = product.sizes.find((s: any) => s.size === selectedSize);
-      if (!sizeData) {
-        return;
-      }
-
-      const cartItem = cart.find(item =>
-        item.productId === productId && item.selectedSize === selectedSize
-      );
-
-      if (!cartItem) {
-        return;
-      }
-
-      const newQuantity = cartItem.quantity + change;
-
-      if (newQuantity > sizeData.stock) {
-        alert(`Solo hay ${sizeData.stock} unidades disponibles para esta talla`);
-        return;
-      }
-
-      if (newQuantity <= 0) {
-        removeItem(productId, selectedSize);
-        return;
-      }
-
-      const updatedCart = cart.map(item =>
-        item.productId === productId && item.selectedSize === selectedSize
-          ? { ...item, quantity: newQuantity }
-          : item
-      );
-      setCart(updatedCart);
-      saveCart();
-    } else {
-      // For products without sizes, just change quantity
-      const updatedCart = cart.map(item => {
-        if (item.productId === productId && item.selectedSize === selectedSize) {
-          const newQuantity = item.quantity + change;
-          if (newQuantity <= 0) {
-            return null;
-          }
-          return { ...item, quantity: newQuantity };
-        }
-        return item;
-      }).filter(item => item !== null) as CartItem[];
-
-      setCart(updatedCart);
-      saveCart();
-    }
+    const updatedCart = cart.map(item =>
+      item.productId === productId && item.selectedSize === selectedSize
+        ? { ...item, quantity: newQuantity }
+        : item
+    );
+    setCart(updatedCart);
+    saveCart();
   };
 
   const removeItem = (productId: string, selectedSize: string | undefined) => {

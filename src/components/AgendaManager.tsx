@@ -72,17 +72,8 @@ const AgendaManager = () => {
       }));
       setBookings(parsedBookings);
     } catch (err) {
-      // Fallback to localStorage if Supabase fails
-      const storedBookings = localStorage.getItem("bookings");
-      if (storedBookings) {
-        const parsedBookings = JSON.parse(storedBookings).map((booking: any) => ({
-          ...booking,
-          status: booking.status === "confirmed" || booking.status === "cancelled" ? booking.status : "confirmed" as const
-        }));
-        setBookings(parsedBookings);
-      } else {
-        setBookings([]);
-      }
+      console.error('Error loading bookings:', err);
+      setBookings([]);
     } finally {
       setLoading(false);
     }
@@ -97,27 +88,13 @@ const AgendaManager = () => {
         await supabaseService.updateAvailabilitySlot(cancelledBooking.date, cancelledBooking.time, 'available');
       }
       
-      // Also update localStorage as fallback
-      const updatedBookings = bookings.map(booking => 
-        booking.id === bookingId 
+      const updatedBookings = bookings.map(booking =>
+        booking.id === bookingId
           ? { ...booking, status: "cancelled" as const }
           : booking
       );
       
       setBookings(updatedBookings);
-      localStorage.setItem("bookings", JSON.stringify(updatedBookings));
-      
-      if (cancelledBooking) {
-        const availabilityKey = `nicoke_disponibilidad_${cancelledBooking.date}`;
-        const storedAvailability = localStorage.getItem(availabilityKey);
-        if (storedAvailability) {
-          const availability = JSON.parse(storedAvailability);
-          const updatedAvailability = availability.map((slot: any) => 
-            slot.time === cancelledBooking.time ? { ...slot, status: 'available' } : slot
-          );
-          localStorage.setItem(availabilityKey, JSON.stringify(updatedAvailability));
-        }
-      }
     } catch (err) {
       setError("Error al cancelar la reserva");
       console.error('Error cancelling booking:', err);
@@ -129,26 +106,9 @@ const AgendaManager = () => {
       await supabaseService.deleteBooking(bookingId);
       
       const deletedBooking = bookings.find(b => b.id === bookingId);
-      if (deletedBooking) {
-        await supabaseService.updateAvailabilitySlot(deletedBooking.date, deletedBooking.time, 'available');
-      }
       
-      // Also update localStorage as fallback
       const updatedBookings = bookings.filter(booking => booking.id !== bookingId);
       setBookings(updatedBookings);
-      localStorage.setItem("bookings", JSON.stringify(updatedBookings));
-      
-      if (deletedBooking) {
-        const availabilityKey = `nicoke_disponibilidad_${deletedBooking.date}`;
-        const storedAvailability = localStorage.getItem(availabilityKey);
-        if (storedAvailability) {
-          const availability = JSON.parse(storedAvailability);
-          const updatedAvailability = availability.map((slot: any) => 
-            slot.time === deletedBooking.time ? { ...slot, status: 'available' } : slot
-          );
-          localStorage.setItem(availabilityKey, JSON.stringify(updatedAvailability));
-        }
-      }
     } catch (err) {
       setError("Error al eliminar la reserva");
       console.error('Error deleting booking:', err);

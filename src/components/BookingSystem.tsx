@@ -78,20 +78,11 @@ const BookingSystem = () => {
       
       for (const d of days) {
         const dateKey = formatDateKey(d);
-        try {
-          const availability = await supabaseService.getAvailability(dateKey);
-          if (availability.length > 0) {
-            loaded[dateKey] = availability
-              .filter((slot: any) => slot.status === 'booked')
-              .map((slot: any) => slot.time);
-          }
-        } catch {
-          // Fallback to localStorage if Supabase fails
-          const key = getStorageKey(d);
-          const stored = localStorage.getItem(key);
-          if (stored) {
-            loaded[dateKey] = JSON.parse(stored);
-          }
+        const availability = await supabaseService.getAvailability(dateKey);
+        if (availability.length > 0) {
+          loaded[dateKey] = availability
+            .filter((slot: any) => slot.status === 'booked')
+            .map((slot: any) => slot.time);
         }
       }
       setBookedSlots(loaded);
@@ -104,11 +95,7 @@ const BookingSystem = () => {
   const allSlots = useMemo(() => (selectedDay ? getSlots(selectedDay) : []), [selectedDay]);
 
   const dayBooked = selectedDay ? bookedSlots[formatDateKey(selectedDay)] || [] : [];
-  const dayBlocked = selectedDay ? (() => {
-    const blockedKey = `nicoke_blocked_${formatDateKey(selectedDay)}`;
-    const storedBlocked = localStorage.getItem(blockedKey);
-    return storedBlocked ? JSON.parse(storedBlocked) : [];
-  })() : [];
+  const dayBlocked: string[] = [];
 
   // Filter out blocked and booked slots
   const slots = useMemo(() => {
@@ -216,30 +203,6 @@ const BookingSystem = () => {
         status: "confirmed" as const,
         createdAt: new Date().toISOString()
       };
-      
-      const existingBookings = localStorage.getItem("bookings");
-      const bookings = existingBookings ? JSON.parse(existingBookings) : [];
-      bookings.push(booking);
-      localStorage.setItem("bookings", JSON.stringify(bookings));
-
-      const storageKey = getStorageKey(selectedDay);
-      localStorage.setItem(storageKey, JSON.stringify(updated));
-
-      const adminAvailabilityKey = `nicoke_disponibilidad_${dateKey}`;
-      const existingAdminAvailability = localStorage.getItem(adminAvailabilityKey);
-      let adminAvailability = existingAdminAvailability ? JSON.parse(existingAdminAvailability) : [];
-
-      const slotIndex = adminAvailability.findIndex((slot: any) => slot.time === selectedHour);
-      if (slotIndex >= 0) {
-        adminAvailability[slotIndex].status = 'booked';
-      } else {
-        adminAvailability.push({
-          id: `${dateKey}-${selectedHour}`,
-          time: selectedHour,
-          status: 'booked'
-        });
-      }
-      localStorage.setItem(adminAvailabilityKey, JSON.stringify(adminAvailability));
       
       setStep(5);
     } catch (error) {

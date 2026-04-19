@@ -92,82 +92,31 @@ const Store = () => {
 
   const loadData = async () => {
     try {
-      let loadedCategories: Category[] = [];
-      
-      // Try loading categories from Supabase first
-      try {
-        const supabaseCategories = await supabaseService.getCategories();
-        if (supabaseCategories && supabaseCategories.length > 0) {
-          loadedCategories = supabaseCategories.map((c: any) => ({
-            id: c.id,
-            name: c.name,
-            createdAt: c.created_at
-          }));
-          setCategories(loadedCategories);
-        }
-      } catch (supabaseError) {
-        console.error('Error loading categories from Supabase:', supabaseError);
+      // Load categories from Supabase exclusively
+      const supabaseCategories = await supabaseService.getCategories();
+      if (supabaseCategories && supabaseCategories.length > 0) {
+        const mappedCategories = supabaseCategories.map((c: any) => ({
+          id: c.id,
+          name: c.name,
+          createdAt: c.created_at
+        }));
+        setCategories(mappedCategories);
       }
 
-      // Fallback to localStorage if Supabase has no categories or failed
-      if (loadedCategories.length === 0) {
-        try {
-          const storedCategories = localStorage.getItem("categories");
-          if (storedCategories) {
-            loadedCategories = JSON.parse(storedCategories);
-            setCategories(loadedCategories);
-          } else {
-            // Default categories if none exist
-            const defaultCategories = [
-              { id: "1", name: "Ropa Urbana", createdAt: new Date().toISOString() },
-              { id: "2", name: "Zapatillas", createdAt: new Date().toISOString() },
-              { id: "3", name: "Perfumes", createdAt: new Date().toISOString() }
-            ];
-            localStorage.setItem("categories", JSON.stringify(defaultCategories));
-            setCategories(defaultCategories);
-          }
-        } catch (localStorageError) {
-          console.error('Error loading categories from localStorage:', localStorageError);
-          // Use default categories as last resort
-          const defaultCategories = [
-            { id: "1", name: "Ropa Urbana", createdAt: new Date().toISOString() },
-            { id: "2", name: "Zapatillas", createdAt: new Date().toISOString() },
-            { id: "3", name: "Perfumes", createdAt: new Date().toISOString() }
-          ];
-          setCategories(defaultCategories);
-        }
-      }
-
-      // Try loading products from Supabase first
-      try {
-        const supabaseProducts = await supabaseService.getProducts();
-        if (supabaseProducts && supabaseProducts.length > 0) {
-          const mappedProducts = supabaseProducts.map((p: any) => ({
-            id: p.id,
-            name: p.name,
-            price: p.price,
-            categoryId: p.category_id,
-            images: p.images,
-            description: p.description,
-            sizes: p.sizes,
-            createdAt: p.created_at
-          }));
-          setProducts(mappedProducts);
-        }
-      } catch (supabaseError) {
-        console.error('Error loading products from Supabase:', supabaseError);
-      }
-
-      // Fallback to localStorage if Supabase has no products or failed
-      if (products.length === 0) {
-        try {
-          const storedProducts = localStorage.getItem("products");
-          if (storedProducts) {
-            setProducts(JSON.parse(storedProducts));
-          }
-        } catch (localStorageError) {
-          console.error('Error loading products from localStorage:', localStorageError);
-        }
+      // Load products from Supabase exclusively
+      const supabaseProducts = await supabaseService.getProducts();
+      if (supabaseProducts && supabaseProducts.length > 0) {
+        const mappedProducts = supabaseProducts.map((p: any) => ({
+          id: p.id,
+          name: p.name,
+          price: p.price,
+          categoryId: p.category_id,
+          images: p.images,
+          description: p.description,
+          sizes: p.sizes,
+          createdAt: p.created_at
+        }));
+        setProducts(mappedProducts);
       }
     } catch (error) {
       console.error('Error in loadData:', error);
