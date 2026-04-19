@@ -120,6 +120,9 @@ const Store = () => {
       }
     } catch (error) {
       console.error('Error in loadData:', error);
+      // Set empty arrays to prevent crashes
+      setCategories([]);
+      setProducts([]);
     } finally {
       setLoading(false);
     }
