@@ -2,28 +2,49 @@ import { useState, useEffect } from "react";
 import { ArrowLeft, CreditCard, ShoppingBag, Truck, Shield, Trash2, Plus, Minus } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { validateInput, isValidChileanPhone, isValidEmail } from "../utils/sanitization";
+import { supabase } from "../supabase";
 
 const Checkout = () => {
   const navigate = useNavigate();
   const [cartItems, setCartItems] = useState<any[]>([]);
+  const [pendingOrder, setPendingOrder] = useState<any>(null);
   const [shippingInfo, setShippingInfo] = useState({
+    name: "",
+    phone: "",
     address: "",
-    city: "",
-    phone: ""
+    city: ""
   });
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
 
   useEffect(() => {
-    loadCart();
+    // Load pending order from localStorage (Mercado Pago flow)
+    const storedPendingOrder = localStorage.getItem('pendingOrder');
+    if (storedPendingOrder) {
+      setPendingOrder(JSON.parse(storedPendingOrder));
+      setCartItems([{
+        productId: JSON.parse(storedPendingOrder).items[0].id,
+        name: JSON.parse(storedPendingOrder).items[0].name,
+        price: JSON.parse(storedPendingOrder).items[0].price,
+        quantity: JSON.parse(storedPendingOrder).items[0].quantity,
+        selectedSize: JSON.parse(storedPendingOrder).items[0].size,
+        image: JSON.parse(storedPendingOrder).items[0].image
+      }]);
+    } else {
+      loadCart();
+    }
   }, []);
 
   // Listen for cart updates
   useEffect(() => {
     const handleCartUpdate = () => {
-      loadCart();
+      if (!pendingOrder) {
+        loadCart();
+      }
     };
     window.addEventListener('cart-updated', handleCartUpdate);
     return () => window.removeEventListener('cart-updated', handleCartUpdate);
-  }, []);
+  }, [pendingOrder]);
 
   const loadCart = () => {
     const storedCart = localStorage.getItem("cart");
@@ -111,9 +132,15 @@ const Checkout = () => {
     }
   };
 
-  const createOrder = (paymentMethod: "mercadopago" | "whatsapp") => {
+  const createOrder = async (paymentMethod: "mercadopago" | "whatsapp") => {
+    // Validate name
+    if (!shippingInfo.name || shippingInfo.name.trim().length < 2) {
+      alert("Por favor, ingresa tu nombre");
+      return null;
+    }
+
     // Validate phone number
-    if (shippingInfo.phone && !isValidChileanPhone(shippingInfo.phone)) {
+    if (!shippingInfo.phone || !isValidChileanPhone(shippingInfo.phone)) {
       alert("Por favor, ingresa un número de teléfono válido (formato chileno)");
       return null;
     }
@@ -136,123 +163,85 @@ const Checkout = () => {
       return null;
     }
 
-    // Validate stock availability before creating order
-    const storedProducts = localStorage.getItem("products");
-    if (!storedProducts) {
-      alert("Error: no se pueden cargar los productos");
+    try {
+      setLoading(true);
+      setError("");
+
+      // Sanitize inputs
+      const sanitizedName = validateInput(shippingInfo.name, "string").sanitized;
+      const sanitizedAddress = validateInput(shippingInfo.address, "string").sanitized;
+      const sanitizedCity = validateInput(shippingInfo.city, "string").sanitized;
+      const sanitizedPhone = validateInput(shippingInfo.phone, "phone").sanitized;
+
+      const subtotal = cartItems.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+      const shipping = 5000; // $5.000 de envío
+      const total = subtotal + shipping;
+
+      // Prepare order data for Supabase
+      const orderData = {
+        customer_name: sanitizedName,
+        customer_phone: sanitizedPhone,
+        customer_address: sanitizedAddress,
+        customer_city: sanitizedCity,
+        items: cartItems.map(item => ({
+          id: item.productId,
+          name: item.name,
+          price: item.price,
+          quantity: item.quantity,
+          image: item.image || "",
+          selectedSize: item.selectedSize
+        })),
+        subtotal,
+        shipping,
+        total,
+        status: "pending",
+        payment_method: paymentMethod
+      };
+
+      // Insert order into Supabase
+      const { data, error } = await supabase
+        .from('orders')
+        .insert(orderData)
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      // Clear pending order and cart
+      localStorage.removeItem('pendingOrder');
+      localStorage.removeItem('cart');
+
+      return data;
+    } catch (error) {
+      console.error('Error creating order:', error);
+      setError("Error al crear el pedido");
       return null;
+    } finally {
+      setLoading(false);
     }
-
-    const products = JSON.parse(storedProducts);
-
-    // Check stock for all cart items
-    for (const cartItem of cartItems) {
-      const product = products.find((p: any) => p.id === cartItem.productId);
-      if (!product) {
-        alert(`Producto ${cartItem.name} no encontrado`);
-        return null;
-      }
-
-      if (product.sizes && product.sizes.length > 0 && cartItem.selectedSize) {
-        const sizeData = product.sizes.find((s: any) => s.size === cartItem.selectedSize);
-        if (!sizeData || sizeData.stock < cartItem.quantity) {
-          alert(`No hay suficiente stock para ${cartItem.name} talla ${cartItem.selectedSize}. Solo hay ${sizeData?.stock || 0} unidades disponibles.`);
-          return null;
-        }
-      }
-    }
-
-    // Sanitize inputs
-    const sanitizedAddress = validateInput(shippingInfo.address, "string").sanitized;
-    const sanitizedCity = validateInput(shippingInfo.city, "string").sanitized;
-    const sanitizedPhone = validateInput(shippingInfo.phone || "", "phone").sanitized;
-
-    const orderId = `order_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-
-    const subtotal = cartItems.reduce((sum, item) => sum + (item.price * item.quantity), 0);
-    const shipping = 5000; // $5.000 de envío
-    const total = subtotal + shipping;
-
-    const order = {
-      id: orderId,
-      customerName: "Cliente Web",
-      customerPhone: sanitizedPhone || "+56 9 XXXX XXXX",
-      customerAddress: sanitizedAddress || "Dirección no especificada",
-      customerCity: sanitizedCity || "Ciudad no especificada",
-      items: cartItems.map(item => ({
-        id: item.productId,
-        name: item.name,
-        price: item.price,
-        quantity: item.quantity,
-        image: item.image || "https://images.unsplash.com/photo-1441986300917-64674bd600d8?w=600&q=80",
-        selectedSize: item.selectedSize
-      })),
-      subtotal,
-      shipping,
-      total,
-      status: "pending" as const,
-      paymentMethod: paymentMethod,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString()
-    };
-
-    // Save order to localStorage
-    const existingOrders = localStorage.getItem("orders");
-    const orders = existingOrders ? JSON.parse(existingOrders) : [];
-    orders.push(order);
-    localStorage.setItem("orders", JSON.stringify(orders));
-
-    // Decrement stock for each item in the order
-    for (const cartItem of cartItems) {
-      const productIndex = products.findIndex((p: any) => p.id === cartItem.productId);
-      if (productIndex >= 0) {
-        const product = products[productIndex];
-
-        if (product.sizes && product.sizes.length > 0 && cartItem.selectedSize) {
-          // Decrement stock for specific size
-          const sizeIndex = product.sizes.findIndex((s: any) => s.size === cartItem.selectedSize);
-          if (sizeIndex >= 0) {
-            products[productIndex].sizes[sizeIndex].stock -= cartItem.quantity;
-          }
-        }
-      }
-    }
-
-    // Save updated products to localStorage
-    localStorage.setItem("products", JSON.stringify(products));
-
-    // Clear cart
-    localStorage.removeItem("cart");
-
-    return order;
   };
 
-  const handleMercadoPago = () => {
-    const order = createOrder("mercadopago");
+  const handleMercadoPago = async () => {
+    const order = await createOrder("mercadopago");
     
     if (!order) {
       return; // Validation failed, error already shown
     }
     
-    // Aquí irá tu link de Mercado Pago cuando lo tengas
-    const mercadoPagoLink = `https://mercadopago.com.ar/checkout/v1/redirect?pref_id=TU_PREFERENCE_ID&order_id=${order.id}`;
-    window.open(mercadoPagoLink, '_blank');
-    
-    // Redirect to orders confirmation
-    setTimeout(() => {
-      navigate("/admin");
-    }, 2000);
+    // For now, redirect to admin since Mercado Pago integration requires setup
+    alert("Mercado Pago integration requires setup. Order created successfully.");
+    navigate("/admin");
   };
 
-  const handleWhatsApp = () => {
-    const order = createOrder("whatsapp");
+  const handleWhatsApp = async () => {
+    const order = await createOrder("whatsapp");
     
     if (!order) {
       return; // Validation failed, error already shown
     }
     
     const message = encodeURIComponent(`Hola! He realizado el pedido #${order.id.slice(-8)} y me gustaría coordinar el pago y envío.\n\nTotal: $${order.total.toLocaleString('es-CL')}`);
-    const whatsappLink = `https://wa.me/569XXXXXXXXX?text=${message}`;
+    const whatsappLink = `https://wa.me/56912345678?text=${message}`;
     window.open(whatsappLink, '_blank');
     
     // Redirect to orders confirmation
@@ -373,6 +362,26 @@ const Checkout = () => {
               </h2>
               
               <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium mb-2">Nombre Completo</label>
+                  <input 
+                    type="text" 
+                    value={shippingInfo.name}
+                    onChange={(e) => setShippingInfo({...shippingInfo, name: e.target.value})}
+                    placeholder="Ingresa tu nombre completo"
+                    className="w-full px-3 py-2 border border-border rounded-lg bg-background"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-2">Teléfono</label>
+                  <input 
+                    type="text" 
+                    value={shippingInfo.phone}
+                    onChange={(e) => setShippingInfo({...shippingInfo, phone: e.target.value})}
+                    placeholder="+56 9 XXXX XXXX"
+                    className="w-full px-3 py-2 border border-border rounded-lg bg-background"
+                  />
+                </div>
                 <div>
                   <label className="block text-sm font-medium mb-2">Dirección</label>
                   <input 

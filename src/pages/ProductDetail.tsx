@@ -123,9 +123,44 @@ ${selectedSize ? `📏 *Talla:* ${selectedSize}` : ''}
   const handleMercadoPagoPurchase = async () => {
     if (!product) return;
 
-    // TODO: Implement Mercado Pago integration with Edge Function
-    // For now, show a message that this feature is coming soon
-    alert("Mercado Pago integration coming soon. Please use WhatsApp for now.");
+    // Validate size selection for products with sizes
+    if (product.sizes && product.sizes.length > 0 && !selectedSize) {
+      setError("Por favor selecciona una talla antes de continuar");
+      return;
+    }
+
+    try {
+      // Calculate total price
+      const totalPrice = product.price * quantity;
+
+      // Prepare order data
+      const orderData = {
+        customer_name: '', // Will be collected in checkout
+        customer_phone: '',
+        customer_address: '',
+        customer_city: '',
+        items: [{
+          id: product.id,
+          name: product.name,
+          price: product.price,
+          quantity: quantity,
+          size: selectedSize || undefined,
+          image: product.images[0]
+        }],
+        subtotal: totalPrice,
+        shipping: 0,
+        total: totalPrice
+      };
+
+      // Store order data in localStorage for checkout
+      localStorage.setItem('pendingOrder', JSON.stringify(orderData));
+
+      // Navigate to checkout
+      navigate('/checkout');
+    } catch (error) {
+      console.error('Error initiating Mercado Pago purchase:', error);
+      setError("Error al iniciar compra con Mercado Pago");
+    }
   };
 
   const handleQuantityChange = (newQuantity: number) => {
