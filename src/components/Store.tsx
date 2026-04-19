@@ -32,33 +32,51 @@ const Store = () => {
 
   useEffect(() => {
     // Set up real-time subscription for categories
-    const unsubscribeCategories = supabaseService.subscribeToCategories((updatedCategories) => {
-      const mappedCategories = updatedCategories.map((c: any) => ({
-        id: c.id,
-        name: c.name,
-        createdAt: c.created_at
-      }));
-      setCategories(mappedCategories);
-    });
+    let unsubscribeCategories: (() => void) | null = null;
+    try {
+      unsubscribeCategories = supabaseService.subscribeToCategories((updatedCategories) => {
+        try {
+          const mappedCategories = updatedCategories?.map((c: any) => ({
+            id: c.id,
+            name: c.name,
+            createdAt: c.created_at
+          })) || [];
+          setCategories(mappedCategories);
+        } catch (error) {
+          console.error('Error processing category update:', error);
+        }
+      });
+    } catch (error) {
+      console.error('Error setting up category subscription:', error);
+    }
 
     // Set up real-time subscription for products
-    const unsubscribeProducts = supabaseService.subscribeToProducts((updatedProducts) => {
-      const mappedProducts = updatedProducts.map((p: any) => ({
-        id: p.id,
-        name: p.name,
-        price: p.price,
-        categoryId: p.category_id,
-        images: p.images,
-        description: p.description,
-        sizes: p.sizes,
-        createdAt: p.created_at
-      }));
-      setProducts(mappedProducts);
-    });
+    let unsubscribeProducts: (() => void) | null = null;
+    try {
+      unsubscribeProducts = supabaseService.subscribeToProducts((updatedProducts) => {
+        try {
+          const mappedProducts = updatedProducts?.map((p: any) => ({
+            id: p.id,
+            name: p.name,
+            price: p.price,
+            categoryId: p.category_id,
+            images: p.images,
+            description: p.description,
+            sizes: p.sizes,
+            createdAt: p.created_at
+          })) || [];
+          setProducts(mappedProducts);
+        } catch (error) {
+          console.error('Error processing product update:', error);
+        }
+      });
+    } catch (error) {
+      console.error('Error setting up product subscription:', error);
+    }
 
     return () => {
-      unsubscribeCategories();
-      unsubscribeProducts();
+      if (unsubscribeCategories) unsubscribeCategories();
+      if (unsubscribeProducts) unsubscribeProducts();
     };
   }, []);
 
@@ -67,65 +85,82 @@ const Store = () => {
       let loadedCategories: Category[] = [];
       
       // Try loading categories from Supabase first
-      const supabaseCategories = await supabaseService.getCategories();
-      if (supabaseCategories.length > 0) {
-        loadedCategories = supabaseCategories.map((c: any) => ({
-          id: c.id,
-          name: c.name,
-          createdAt: c.created_at
-        }));
-        setCategories(loadedCategories);
+      try {
+        const supabaseCategories = await supabaseService.getCategories();
+        if (supabaseCategories && supabaseCategories.length > 0) {
+          loadedCategories = supabaseCategories.map((c: any) => ({
+            id: c.id,
+            name: c.name,
+            createdAt: c.created_at
+          }));
+          setCategories(loadedCategories);
+        }
+      } catch (supabaseError) {
+        console.error('Error loading categories from Supabase:', supabaseError);
       }
 
-      // Fallback to localStorage if Supabase has no categories
+      // Fallback to localStorage if Supabase has no categories or failed
       if (loadedCategories.length === 0) {
-        const storedCategories = localStorage.getItem("categories");
-        if (storedCategories) {
-          loadedCategories = JSON.parse(storedCategories);
-          setCategories(loadedCategories);
-        } else {
-          // Default categories if none exist
+        try {
+          const storedCategories = localStorage.getItem("categories");
+          if (storedCategories) {
+            loadedCategories = JSON.parse(storedCategories);
+            setCategories(loadedCategories);
+          } else {
+            // Default categories if none exist
+            const defaultCategories = [
+              { id: "1", name: "Ropa Urbana", createdAt: new Date().toISOString() },
+              { id: "2", name: "Zapatillas", createdAt: new Date().toISOString() },
+              { id: "3", name: "Perfumes", createdAt: new Date().toISOString() }
+            ];
+            localStorage.setItem("categories", JSON.stringify(defaultCategories));
+            setCategories(defaultCategories);
+          }
+        } catch (localStorageError) {
+          console.error('Error loading categories from localStorage:', localStorageError);
+          // Use default categories as last resort
           const defaultCategories = [
             { id: "1", name: "Ropa Urbana", createdAt: new Date().toISOString() },
             { id: "2", name: "Zapatillas", createdAt: new Date().toISOString() },
             { id: "3", name: "Perfumes", createdAt: new Date().toISOString() }
           ];
-          localStorage.setItem("categories", JSON.stringify(defaultCategories));
           setCategories(defaultCategories);
         }
       }
 
       // Try loading products from Supabase first
-      const supabaseProducts = await supabaseService.getProducts();
-      if (supabaseProducts.length > 0) {
-        const mappedProducts = supabaseProducts.map((p: any) => ({
-          id: p.id,
-          name: p.name,
-          price: p.price,
-          categoryId: p.category_id,
-          images: p.images,
-          description: p.description,
-          sizes: p.sizes,
-          createdAt: p.created_at
-        }));
-        setProducts(mappedProducts);
-      } else {
-        // Fallback to localStorage
-        const storedProducts = localStorage.getItem("products");
-        if (storedProducts) {
-          setProducts(JSON.parse(storedProducts));
+      try {
+        const supabaseProducts = await supabaseService.getProducts();
+        if (supabaseProducts && supabaseProducts.length > 0) {
+          const mappedProducts = supabaseProducts.map((p: any) => ({
+            id: p.id,
+            name: p.name,
+            price: p.price,
+            categoryId: p.category_id,
+            images: p.images,
+            description: p.description,
+            sizes: p.sizes,
+            createdAt: p.created_at
+          }));
+          setProducts(mappedProducts);
+        }
+      } catch (supabaseError) {
+        console.error('Error loading products from Supabase:', supabaseError);
+      }
+
+      // Fallback to localStorage if Supabase has no products or failed
+      if (products.length === 0) {
+        try {
+          const storedProducts = localStorage.getItem("products");
+          if (storedProducts) {
+            setProducts(JSON.parse(storedProducts));
+          }
+        } catch (localStorageError) {
+          console.error('Error loading products from localStorage:', localStorageError);
         }
       }
     } catch (error) {
-      // Fallback to localStorage if Supabase fails
-      const storedCategories = localStorage.getItem("categories");
-      if (storedCategories) {
-        setCategories(JSON.parse(storedCategories));
-      }
-      const storedProducts = localStorage.getItem("products");
-      if (storedProducts) {
-        setProducts(JSON.parse(storedProducts));
-      }
+      console.error('Error in loadData:', error);
     } finally {
       setLoading(false);
     }
