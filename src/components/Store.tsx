@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { ShoppingBag, Footprints, Package, Box } from "lucide-react";
 import { supabaseService } from "../services/supabaseService";
+import { supabase } from "../supabase";
 
 interface Category {
   id: string;
@@ -26,43 +27,28 @@ const Store = () => {
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
   const [updateNotification, setUpdateNotification] = useState<string | null>(null);
+  const [subscriptionLogs, setSubscriptionLogs] = useState<string[]>([]);
+  
+  const addLog = (message: string) => {
+    const timestamp = new Date().toLocaleTimeString();
+    setSubscriptionLogs(prev => [`[${timestamp}] ${message}`, ...prev].slice(0, 20));
+  };
 
   useEffect(() => {
     loadData();
   }, []);
 
   useEffect(() => {
-    console.log('Store: Setting up real-time subscriptions');
-    
-    // Set up real-time subscription for categories
-    let unsubscribeCategories: (() => void) | null = null;
-    try {
-      unsubscribeCategories = supabaseService.subscribeToCategories((updatedCategories) => {
-        console.log('Store: Category subscription received update', updatedCategories);
-        try {
-          const mappedCategories = updatedCategories?.map((c: any) => ({
-            id: c.id,
-            name: c.name,
-            createdAt: c.created_at
-          })) || [];
-          console.log('Store: Setting categories from subscription', mappedCategories);
-          setCategories(mappedCategories);
-        } catch (error) {
-          console.error('Error processing category update:', error);
-        }
-      });
-      console.log('Store: Category subscription set up successfully');
-    } catch (error) {
-      console.error('Error setting up category subscription:', error);
-    }
-
-    // Set up real-time subscription for products
-    let unsubscribeProducts: (() => void) | null = null;
-    try {
-      unsubscribeProducts = supabaseService.subscribeToProducts((updatedProducts) => {
-        console.log('Store: Product subscription received update', updatedProducts);
-        try {
-          const mappedProducts = updatedProducts?.map((p: any) => ({
+    // Direct Supabase Realtime subscription for products
+    const productChannel = supabase
+      .channel('public:products')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'products' },
+        async (payload) => {
+          console.log('Store: Product change received', payload);
+          const products = await supabaseService.getProducts();
+          const mappedProducts = products?.map((p: any) => ({
             id: p.id,
             name: p.name,
             price: p.price,
@@ -72,23 +58,35 @@ const Store = () => {
             sizes: p.sizes,
             createdAt: p.created_at
           })) || [];
-          console.log('Store: Setting products from subscription', mappedProducts);
           setProducts(mappedProducts);
           setUpdateNotification(`Productos actualizados: ${mappedProducts.length} productos`);
           setTimeout(() => setUpdateNotification(null), 3000);
-        } catch (error) {
-          console.error('Error processing product update:', error);
         }
-      });
-      console.log('Store: Product subscription set up successfully');
-    } catch (error) {
-      console.error('Error setting up product subscription:', error);
-    }
+      )
+      .subscribe();
+
+    // Direct Supabase Realtime subscription for categories
+    const categoryChannel = supabase
+      .channel('public:categories')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'categories' },
+        async (payload) => {
+          console.log('Store: Category change received', payload);
+          const categories = await supabaseService.getCategories();
+          const mappedCategories = categories?.map((c: any) => ({
+            id: c.id,
+            name: c.name,
+            createdAt: c.created_at
+          })) || [];
+          setCategories(mappedCategories);
+        }
+      )
+      .subscribe();
 
     return () => {
-      console.log('Store: Cleaning up subscriptions');
-      if (unsubscribeCategories) unsubscribeCategories();
-      if (unsubscribeProducts) unsubscribeProducts();
+      supabase.removeChannel(productChannel);
+      supabase.removeChannel(categoryChannel);
     };
   }, []);
 
