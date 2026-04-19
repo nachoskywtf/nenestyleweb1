@@ -31,21 +31,26 @@ const Store = () => {
   }, []);
 
   useEffect(() => {
+    console.log('Store: Setting up real-time subscriptions');
+    
     // Set up real-time subscription for categories
     let unsubscribeCategories: (() => void) | null = null;
     try {
       unsubscribeCategories = supabaseService.subscribeToCategories((updatedCategories) => {
+        console.log('Store: Category subscription received update', updatedCategories);
         try {
           const mappedCategories = updatedCategories?.map((c: any) => ({
             id: c.id,
             name: c.name,
             createdAt: c.created_at
           })) || [];
+          console.log('Store: Setting categories from subscription', mappedCategories);
           setCategories(mappedCategories);
         } catch (error) {
           console.error('Error processing category update:', error);
         }
       });
+      console.log('Store: Category subscription set up successfully');
     } catch (error) {
       console.error('Error setting up category subscription:', error);
     }
@@ -54,6 +59,7 @@ const Store = () => {
     let unsubscribeProducts: (() => void) | null = null;
     try {
       unsubscribeProducts = supabaseService.subscribeToProducts((updatedProducts) => {
+        console.log('Store: Product subscription received update', updatedProducts);
         try {
           const mappedProducts = updatedProducts?.map((p: any) => ({
             id: p.id,
@@ -65,16 +71,19 @@ const Store = () => {
             sizes: p.sizes,
             createdAt: p.created_at
           })) || [];
+          console.log('Store: Setting products from subscription', mappedProducts);
           setProducts(mappedProducts);
         } catch (error) {
           console.error('Error processing product update:', error);
         }
       });
+      console.log('Store: Product subscription set up successfully');
     } catch (error) {
       console.error('Error setting up product subscription:', error);
     }
 
     return () => {
+      console.log('Store: Cleaning up subscriptions');
       if (unsubscribeCategories) unsubscribeCategories();
       if (unsubscribeProducts) unsubscribeProducts();
     };
