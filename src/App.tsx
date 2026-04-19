@@ -12,6 +12,7 @@ import Checkout from "./pages/Checkout.tsx";
 import Login from "./pages/Login.tsx";
 import Admin from "./pages/Admin.tsx";
 import ProductDetail from "./pages/ProductDetail.tsx";
+import Store from "./pages/Store.tsx";
 import ProtectedRoute from "./components/ProtectedRoute.tsx";
 import Cart from "./components/Cart.tsx";
 import ErrorBoundary from "./components/ErrorBoundary.tsx";
@@ -28,6 +29,7 @@ const App = () => (
         <BrowserRouter>
           <Routes>
             <Route path="/" element={<Index />} />
+            <Route path="/tienda" element={<Store />} />
             <Route path="/catalogo/ropa" element={<CatalogoRopa />} />
             <Route path="/catalogo/zapatillas" element={<CatalogoZapatillas />} />
             <Route path="/catalogo/perfumes" element={<CatalogoPerfumes />} />

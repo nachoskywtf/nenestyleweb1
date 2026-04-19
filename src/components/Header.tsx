@@ -1,8 +1,10 @@
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { Menu, X, Scissors, ShoppingCart } from "lucide-react";
 
 const Header = () => {
   const [open, setOpen] = useState(false);
+  const navigate = useNavigate();
 
   const scrollTo = (id: string) => {
     document.getElementById(id)?.scrollIntoView({ behavior: "smooth" });
@@ -19,15 +21,15 @@ const Header = () => {
 
         {/* Desktop nav */}
         <nav className="hidden md:flex items-center gap-6 text-sm">
-          {[
-            ["Servicios", "servicios"],
-            ["Tienda", "tienda"],
-            ["Horarios", "horarios"],
-          ].map(([label, id]) => (
-            <button key={id} onClick={() => scrollTo(id)} className="text-muted-foreground hover:text-foreground transition-colors">
-              {label}
-            </button>
-          ))}
+          <button onClick={() => scrollTo("servicios")} className="text-muted-foreground hover:text-foreground transition-colors">
+            Servicios
+          </button>
+          <button onClick={() => navigate("/tienda")} className="text-muted-foreground hover:text-foreground transition-colors">
+            Tienda
+          </button>
+          <button onClick={() => scrollTo("horarios")} className="text-muted-foreground hover:text-foreground transition-colors">
+            Horarios
+          </button>
           <button
             onClick={() => window.dispatchEvent(new CustomEvent('open-cart'))}
             className="relative p-2 rounded-lg hover:bg-secondary transition-colors"
@@ -61,15 +63,15 @@ const Header = () => {
       {/* Mobile menu */}
       {open && (
         <div className="md:hidden bg-background border-b border-border px-4 pb-4 space-y-3">
-          {[
-            ["Servicios", "galeria"],
-            ["Tienda", "tienda"],
-            ["Horarios", "horarios"],
-          ].map(([label, id]) => (
-            <button key={id} onClick={() => scrollTo(id)} className="block w-full text-left text-muted-foreground hover:text-foreground py-1">
-              {label}
-            </button>
-          ))}
+          <button onClick={() => scrollTo("servicios")} className="block w-full text-left text-muted-foreground hover:text-foreground py-1">
+            Servicios
+          </button>
+          <button onClick={() => navigate("/tienda")} className="block w-full text-left text-muted-foreground hover:text-foreground py-1">
+            Tienda
+          </button>
+          <button onClick={() => scrollTo("horarios")} className="block w-full text-left text-muted-foreground hover:text-foreground py-1">
+            Horarios
+          </button>
           <button
             onClick={() => scrollTo("agendar")}
             className="w-full bg-primary text-primary-foreground px-4 py-2 rounded-lg font-semibold text-sm"

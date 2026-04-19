@@ -49,69 +49,85 @@ const Store = () => {
   }, []);
 
   useEffect(() => {
-    // Realtime subscriptions temporarily disabled to isolate WebSocket error
-    // TODO: Re-enable after fixing WebSocket insecure error
-    /*
-    const productChannel = supabase
-      .channel('public:products')
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'products' },
-        async (payload) => {
-          try {
-            console.log('Store: Product change received', payload);
-            const products = await supabaseService.getProducts();
-            const mappedProducts = products?.map((p: any) => ({
-              id: p.id,
-              name: p.name,
-              price: p.price,
-              categoryId: p.category_id,
-              images: p.images,
-              description: p.description,
-              sizes: p.sizes,
-              createdAt: p.created_at
-            })) || [];
-            setProducts(mappedProducts);
-            setUpdateNotification(`Productos actualizados: ${mappedProducts.length} productos`);
-            setTimeout(() => setUpdateNotification(null), 3000);
-          } catch (error) {
-            console.error('Error processing product update:', error);
-          }
-        }
-      )
-      .subscribe();
+    // Re-enable Realtime with error handling
+    let productChannel: any = null;
+    let categoryChannel: any = null;
 
-    const categoryChannel = supabase
-      .channel('public:categories')
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'categories' },
-        async (payload) => {
-          try {
-            console.log('Store: Category change received', payload);
-            const categories = await supabaseService.getCategories();
-            const mappedCategories = categories?.map((c: any) => ({
-              id: c.id,
-              name: c.name,
-              createdAt: c.created_at
-            })) || [];
-            setCategories(mappedCategories);
-          } catch (error) {
-            console.error('Error processing category update:', error);
+    try {
+      productChannel = supabase
+        .channel('public:products')
+        .on(
+          'postgres_changes',
+          { event: '*', schema: 'public', table: 'products' },
+          async (payload) => {
+            try {
+              console.log('Store: Product change received', payload);
+              const products = await supabaseService.getProducts();
+              const mappedProducts = products?.map((p: any) => ({
+                id: p.id,
+                name: p.name,
+                price: p.price,
+                categoryId: p.category_id,
+                images: p.images,
+                description: p.description,
+                sizes: p.sizes,
+                createdAt: p.created_at
+              })) || [];
+              setProducts(mappedProducts);
+              setUpdateNotification(`Productos actualizados: ${mappedProducts.length} productos`);
+              setTimeout(() => setUpdateNotification(null), 3000);
+            } catch (error) {
+              console.error('Error processing product update:', error);
+            }
           }
-        }
-      )
-      .subscribe();
+        )
+        .subscribe((status: any) => {
+          if (status === 'SUBSCRIBED') {
+            console.log('Realtime product channel subscribed');
+          } else if (status === 'CHANNEL_ERROR') {
+            console.error('Realtime product channel error');
+          }
+        });
+
+      categoryChannel = supabase
+        .channel('public:categories')
+        .on(
+          'postgres_changes',
+          { event: '*', schema: 'public', table: 'categories' },
+          async (payload) => {
+            try {
+              console.log('Store: Category change received', payload);
+              const categories = await supabaseService.getCategories();
+              const mappedCategories = categories?.map((c: any) => ({
+                id: c.id,
+                name: c.name,
+                createdAt: c.created_at
+              })) || [];
+              setCategories(mappedCategories);
+            } catch (error) {
+              console.error('Error processing category update:', error);
+            }
+          }
+        )
+        .subscribe((status: any) => {
+          if (status === 'SUBSCRIBED') {
+            console.log('Realtime category channel subscribed');
+          } else if (status === 'CHANNEL_ERROR') {
+            console.error('Realtime category channel error');
+          }
+        });
+    } catch (error) {
+      console.error('Error setting up Realtime subscriptions:', error);
+    }
 
     return () => {
       try {
-        supabase.removeChannel(productChannel);
-        supabase.removeChannel(categoryChannel);
+        if (productChannel) supabase.removeChannel(productChannel);
+        if (categoryChannel) supabase.removeChannel(categoryChannel);
       } catch (error) {
         console.error('Error removing channels:', error);
       }
     };
-    */
   }, []);
 
   const loadData = async () => {
