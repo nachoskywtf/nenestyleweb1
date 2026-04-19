@@ -25,6 +25,7 @@ const Store = () => {
   const [categories, setCategories] = useState<Category[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
+  const [updateNotification, setUpdateNotification] = useState<string | null>(null);
 
   useEffect(() => {
     loadData();
@@ -73,6 +74,8 @@ const Store = () => {
           })) || [];
           console.log('Store: Setting products from subscription', mappedProducts);
           setProducts(mappedProducts);
+          setUpdateNotification(`Productos actualizados: ${mappedProducts.length} productos`);
+          setTimeout(() => setUpdateNotification(null), 3000);
         } catch (error) {
           console.error('Error processing product update:', error);
         }
@@ -250,6 +253,11 @@ const Store = () => {
   return (
     <section id="tienda" className="py-20 bg-secondary/30">
       <div className="container mx-auto px-4">
+        {updateNotification && (
+          <div className="fixed top-4 right-4 bg-primary text-primary-foreground px-4 py-2 rounded-lg shadow-lg z-50 animate-pulse">
+            {updateNotification}
+          </div>
+        )}
         <h2 className="text-3xl md:text-4xl font-heading font-bold text-center mb-4">Tienda</h2>
         <p className="text-muted-foreground text-center mb-12">Completa tu estilo con nosotros.</p>
         
