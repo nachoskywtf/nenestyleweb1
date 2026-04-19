@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { Package, Plus, Edit2, Trash2, Save, X, Image, DollarSign, Box, Tag, PlusCircle } from "lucide-react";
 import { formatCLP } from "../utils/currency";
 import { supabaseService } from "../services/supabaseService";
+import { supabase } from "../supabase";
 
 interface Category {
   id: string;
@@ -243,6 +244,13 @@ const ProductManager = () => {
     if (!confirm("¿Está seguro de eliminar este producto?")) return;
 
     try {
+      // Check authentication
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        setError("Debes estar logueado para eliminar productos");
+        return;
+      }
+
       // Delete from Supabase
       await supabaseService.deleteProduct(productId);
       setSuccess("Producto eliminado exitosamente");
