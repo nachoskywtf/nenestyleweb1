@@ -49,7 +49,9 @@ const Store = () => {
   }, []);
 
   useEffect(() => {
-    // Direct Supabase Realtime subscription for products
+    // Realtime subscriptions temporarily disabled to isolate WebSocket error
+    // TODO: Re-enable after fixing WebSocket insecure error
+    /*
     const productChannel = supabase
       .channel('public:products')
       .on(
@@ -79,7 +81,6 @@ const Store = () => {
       )
       .subscribe();
 
-    // Direct Supabase Realtime subscription for categories
     const categoryChannel = supabase
       .channel('public:categories')
       .on(
@@ -110,6 +111,7 @@ const Store = () => {
         console.error('Error removing channels:', error);
       }
     };
+    */
   }, []);
 
   const loadData = async () => {
