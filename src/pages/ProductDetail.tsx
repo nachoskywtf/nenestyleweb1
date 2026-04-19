@@ -94,11 +94,28 @@ const ProductDetail = () => {
   const handleWhatsAppPurchase = () => {
     if (!product) return;
 
-    // Construct WhatsApp message
-    const message = `Hola! Me interesa comprar: ${product.name} con precio de ${formatCLP(product.price)}`;
-    const encodedMessage = encodeURIComponent(message);
+    // Validate size selection for products with sizes
+    if (product.sizes && product.sizes.length > 0 && !selectedSize) {
+      setError("Por favor selecciona una talla antes de continuar");
+      return;
+    }
+
+    // Calculate total price
+    const totalPrice = product.price * quantity;
+
+    // Construct structured WhatsApp message
+    const mensajeBase = `¡Hola! Vengo desde la tienda web y quiero confirmar la siguiente compra:
+🛍️ *Producto:* ${product.name}
+${selectedSize ? `📏 *Talla:* ${selectedSize}` : ''}
+🔢 *Cantidad:* ${quantity}
+💰 *Total a pagar:* ${formatCLP(totalPrice)}
+
+¿Me confirmas disponibilidad para coordinar la entrega?`;
+
+    // Encode message for URL
+    const mensajeCodificado = encodeURIComponent(mensajeBase);
     const whatsappNumber = "56912345678"; // Replace with actual WhatsApp number
-    const whatsappUrl = `https://wa.me/${whatsappNumber}?text=${encodedMessage}`;
+    const whatsappUrl = `https://wa.me/${whatsappNumber}?text=${mensajeCodificado}`;
     
     window.open(whatsappUrl, '_blank');
   };
