@@ -244,13 +244,6 @@ const ProductManager = () => {
     if (!confirm("¿Está seguro de eliminar este producto?")) return;
 
     try {
-      // Check authentication
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) {
-        setError("Debes estar logueado para eliminar productos");
-        return;
-      }
-
       // Delete from Supabase
       await supabaseService.deleteProduct(productId);
       setSuccess("Producto eliminado exitosamente");
