@@ -14,35 +14,38 @@ import Admin from "./pages/Admin.tsx";
 import ProductDetail from "./pages/ProductDetail.tsx";
 import ProtectedRoute from "./components/ProtectedRoute.tsx";
 import Cart from "./components/Cart.tsx";
+import ErrorBoundary from "./components/ErrorBoundary.tsx";
 
 const queryClient = new QueryClient();
 
 const App = () => (
-  <QueryClientProvider client={queryClient}>
-    <TooltipProvider>
-      <Toaster />
-      <Sonner />
-      <Cart />
-      <BrowserRouter>
-        <Routes>
-          <Route path="/" element={<Index />} />
-          <Route path="/catalogo/ropa" element={<CatalogoRopa />} />
-          <Route path="/catalogo/zapatillas" element={<CatalogoZapatillas />} />
-          <Route path="/catalogo/perfumes" element={<CatalogoPerfumes />} />
-          <Route path="/checkout" element={<Checkout />} />
-          <Route path="/login" element={<Login />} />
-          <Route path="/admin" element={
-          <ProtectedRoute>
-            <Admin />
-          </ProtectedRoute>
-        } />
-        <Route path="/product/:id" element={<ProductDetail />} />
-          {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
-          <Route path="*" element={<NotFound />} />
-        </Routes>
-      </BrowserRouter>
-    </TooltipProvider>
-  </QueryClientProvider>
+  <ErrorBoundary>
+    <QueryClientProvider client={queryClient}>
+      <TooltipProvider>
+        <Toaster />
+        <Sonner />
+        <Cart />
+        <BrowserRouter>
+          <Routes>
+            <Route path="/" element={<Index />} />
+            <Route path="/catalogo/ropa" element={<CatalogoRopa />} />
+            <Route path="/catalogo/zapatillas" element={<CatalogoZapatillas />} />
+            <Route path="/catalogo/perfumes" element={<CatalogoPerfumes />} />
+            <Route path="/checkout" element={<Checkout />} />
+            <Route path="/login" element={<Login />} />
+            <Route path="/admin" element={
+            <ProtectedRoute>
+              <Admin />
+            </ProtectedRoute>
+          } />
+          <Route path="/product/:id" element={<ProductDetail />} />
+            {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
+            <Route path="*" element={<NotFound />} />
+          </Routes>
+        </BrowserRouter>
+      </TooltipProvider>
+    </QueryClientProvider>
+  </ErrorBoundary>
 );
 
 export default App;
