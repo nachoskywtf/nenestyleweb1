@@ -90,66 +90,6 @@ const ProductDetail = () => {
     }
   };
 
-  const handleAddToCart = () => {
-    if (!product) return;
-
-    // Validate size selection for products with sizes
-    if (product.sizes && product.sizes.length > 0) {
-      if (!selectedSize) {
-        setError("Debe seleccionar una talla");
-        return;
-      }
-
-      const selectedSizeData = product.sizes.find(s => s.size === selectedSize);
-      if (!selectedSizeData || selectedSizeData.stock < quantity) {
-        setError("No hay suficiente stock disponible para esta talla");
-        return;
-      }
-
-      // Check if item is already in cart
-      const existingCart = localStorage.getItem("cart");
-      const cart = existingCart ? JSON.parse(existingCart) : [];
-      const existingItem = cart.find((item: any) =>
-        item.productId === product.id && item.selectedSize === selectedSize
-      );
-
-      if (existingItem) {
-        const totalQuantity = existingItem.quantity + quantity;
-        if (totalQuantity > selectedSizeData.stock) {
-          setError(`Solo hay ${selectedSizeData.stock} unidades disponibles para esta talla (ya tienes ${existingItem.quantity} en el carrito)`);
-          return;
-        }
-      }
-    }
-
-    // Add to cart logic
-    const cartItem = {
-      productId: product.id,
-      name: product.name,
-      price: product.price,
-      quantity,
-      image: product.images[0],
-      selectedSize: selectedSize || undefined
-    };
-
-    const existingCart = localStorage.getItem("cart");
-    const cart = existingCart ? JSON.parse(existingCart) : [];
-
-    const existingItemIndex = cart.findIndex((item: any) =>
-      item.productId === product.id && item.selectedSize === (selectedSize || undefined)
-    );
-    if (existingItemIndex >= 0) {
-      cart[existingItemIndex].quantity += quantity;
-    } else {
-      cart.push(cartItem);
-    }
-
-    localStorage.setItem("cart", JSON.stringify(cart));
-    window.dispatchEvent(new CustomEvent('cart-updated'));
-
-    // Navigate to checkout
-    navigate("/checkout");
-  };
 
   const handleWhatsAppPurchase = () => {
     if (!product) return;

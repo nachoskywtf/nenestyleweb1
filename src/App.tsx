@@ -14,7 +14,6 @@ import Admin from "./pages/Admin.tsx";
 import ProductDetail from "./pages/ProductDetail.tsx";
 import Store from "./pages/Store.tsx";
 import ProtectedRoute from "./components/ProtectedRoute.tsx";
-import Cart from "./components/Cart.tsx";
 import ErrorBoundary from "./components/ErrorBoundary.tsx";
 
 const queryClient = new QueryClient();
@@ -25,7 +24,6 @@ const App = () => (
       <TooltipProvider>
         <Toaster />
         <Sonner />
-        <Cart />
         <BrowserRouter>
           <Routes>
             <Route path="/" element={<Index />} />

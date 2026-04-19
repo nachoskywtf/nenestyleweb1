@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Menu, X, Scissors, ShoppingCart } from "lucide-react";
+import { Menu, X, Scissors } from "lucide-react";
 
 const Header = () => {
   const [open, setOpen] = useState(false);
@@ -31,13 +31,6 @@ const Header = () => {
             Horarios
           </button>
           <button
-            onClick={() => window.dispatchEvent(new CustomEvent('open-cart'))}
-            className="relative p-2 rounded-lg hover:bg-secondary transition-colors"
-            aria-label="Abrir carrito"
-          >
-            <ShoppingCart className="h-6 w-6" />
-          </button>
-          <button
             onClick={() => scrollTo("agendar")}
             className="bg-primary text-primary-foreground px-4 py-2 rounded-lg font-semibold text-sm hover:opacity-90 transition-opacity"
           >
@@ -47,13 +40,6 @@ const Header = () => {
 
         {/* Mobile toggle */}
         <div className="flex items-center gap-2 md:hidden">
-          <button
-            onClick={() => window.dispatchEvent(new CustomEvent('open-cart'))}
-            className="relative p-2 rounded-lg hover:bg-secondary transition-colors"
-            aria-label="Abrir carrito"
-          >
-            <ShoppingCart className="h-6 w-6" />
-          </button>
           <button className="text-foreground" onClick={() => setOpen(!open)}>
             {open ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
           </button>
