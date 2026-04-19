@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { ShoppingBag, Package, Truck, CheckCircle, XCircle, Clock, User, Phone, MapPin, CreditCard, MessageCircle, Download, FileText } from "lucide-react";
 import { formatCLP } from "../utils/currency";
+import { supabase } from "../supabase";
 
 interface Order {
   id: string;
@@ -35,6 +36,22 @@ const OrderManager = () => {
 
   useEffect(() => {
     loadOrders();
+    
+    // Set up Realtime subscription for orders
+    const subscription = supabase
+      .channel('orders-changes')
+      .on('postgres_changes', {
+        event: '*',
+        schema: 'public',
+        table: 'orders'
+      }, () => {
+        loadOrders(); // Reload orders when changes occur
+      })
+      .subscribe();
+    
+    return () => {
+      subscription.unsubscribe();
+    };
   }, []);
 
   useEffect(() => {
@@ -50,17 +67,36 @@ const OrderManager = () => {
       setLoading(true);
       setError("");
       
-      const storedOrders = localStorage.getItem("orders");
-      if (storedOrders) {
-        const parsedOrders = JSON.parse(storedOrders).map((order: any) => ({
-          ...order,
-          status: (order.status === "pending" || order.status === "confirmed" || order.status === "shipped" || order.status === "delivered" || order.status === "cancelled") ? order.status : "pending"
+      // Load orders from Supabase
+      const { data, error } = await supabase
+        .from('orders')
+        .select('*')
+        .order('created_at', { ascending: false });
+      
+      if (error) throw error;
+      
+      if (data) {
+        const mappedOrders = data.map((order: any) => ({
+          id: order.id,
+          customerName: order.customer_name || '',
+          customerPhone: order.customer_phone || '',
+          customerAddress: order.customer_address || '',
+          customerCity: order.customer_city || '',
+          items: order.items || [],
+          subtotal: order.subtotal || 0,
+          shipping: order.shipping || 0,
+          total: order.total || 0,
+          status: (order.status === "pending" || order.status === "confirmed" || order.status === "shipped" || order.status === "delivered" || order.status === "cancelled") ? order.status : "pending",
+          paymentMethod: order.payment_method || 'whatsapp',
+          createdAt: order.created_at,
+          updatedAt: order.updated_at
         }));
-        setOrders(parsedOrders);
+        setOrders(mappedOrders);
       } else {
         setOrders([]);
       }
     } catch (err) {
+      console.error('Error loading orders:', err);
       setError("Error al cargar los pedidos");
     } finally {
       setLoading(false);
@@ -69,15 +105,21 @@ const OrderManager = () => {
 
   const updateOrderStatus = async (orderId: string, newStatus: Order["status"]) => {
     try {
-      const updatedOrders = orders.map(order => 
-        order.id === orderId 
-          ? { ...order, status: newStatus, updatedAt: new Date().toISOString() }
-          : order
-      );
+      // Update order in Supabase
+      const { error } = await supabase
+        .from('orders')
+        .update({ 
+          status: newStatus,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', orderId);
       
-      setOrders(updatedOrders);
-      localStorage.setItem("orders", JSON.stringify(updatedOrders));
+      if (error) throw error;
+      
+      // Reload orders to get updated data
+      await loadOrders();
     } catch (err) {
+      console.error('Error updating order status:', err);
       setError("Error al actualizar el estado del pedido");
     }
   };
