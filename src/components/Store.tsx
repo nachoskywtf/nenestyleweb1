@@ -29,11 +29,17 @@ const Store = () => {
   const [showSkeleton, setShowSkeleton] = useState(false);
   const [updateNotification, setUpdateNotification] = useState<string | null>(null);
   const [subscriptionLogs, setSubscriptionLogs] = useState<string[]>([]);
+  const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   
   const addLog = (message: string) => {
     const timestamp = new Date().toLocaleTimeString();
     setSubscriptionLogs(prev => [`[${timestamp}] ${message}`, ...prev].slice(0, 20));
   };
+
+  // Filter products by selected category
+  const filteredProducts = selectedCategory
+    ? products.filter(p => p.categoryId === selectedCategory)
+    : products;
 
   useEffect(() => {
     loadData();
@@ -235,8 +241,8 @@ const Store = () => {
           <p className="text-muted-foreground text-center mb-12">Completa tu estilo con nosotros.</p>
           
           {showSkeleton ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {[1, 2, 3, 4, 5, 6].map((i) => (
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-6">
+              {[1, 2, 3, 4, 5, 6, 7, 8].map((i) => (
                 <div key={i} className="bg-card rounded-lg overflow-hidden animate-pulse">
                   <div className="h-48 bg-muted"></div>
                   <div className="p-4">
@@ -259,7 +265,7 @@ const Store = () => {
   }
 
   return (
-    <section id="tienda" className="py-20 bg-secondary/30">
+    <section id="tienda" className="py-20 bg-secondary/30 min-h-screen">
       <div className="container mx-auto px-4">
         {updateNotification && (
           <div className="fixed top-4 right-4 bg-primary text-primary-foreground px-4 py-2 rounded-lg shadow-lg z-50 animate-pulse">
@@ -267,91 +273,94 @@ const Store = () => {
           </div>
         )}
         <h2 className="text-3xl md:text-4xl font-heading font-bold text-center mb-4">Tienda</h2>
-        <p className="text-muted-foreground text-center mb-12">Completa tu estilo con nosotros.</p>
+        <p className="text-muted-foreground text-center mb-8">Completa tu estilo con nosotros.</p>
         
-        {/* Render each category as an independent section */}
-        <div className="space-y-16">
-          {categories?.map((category) => {
-            const Icon = getCategoryIcon(category?.name);
-            const categoryProducts = products?.filter(p => p?.categoryId === category?.id);
-            
-            return (
-              <div key={category?.id} className="max-w-6xl mx-auto">
-                {/* Category Header */}
-                <div className="text-center mb-8">
-                  <div className="flex items-center justify-center gap-3 mb-4">
-                    <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center">
-                      <Icon className="h-8 w-8 text-primary" />
-                    </div>
-                    <h3 className="text-2xl font-heading font-bold">{category?.name}</h3>
-                  </div>
-                  <p className="text-muted-foreground mb-6">{getCategoryDescription(category?.name)}</p>
-                  <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground">
-                    <span>{categoryProducts?.length || 0} productos disponibles</span>
-                  </div>
-                </div>
-
-                {/* Products Grid for this Category */}
-                {categoryProducts?.length > 0 ? (
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-                    {categoryProducts?.map((product) => (
-                      <div
-                        key={product?.id}
-                        className="bg-card border border-card-border rounded-xl overflow-hidden group transform transition-all hover:scale-105 hover:shadow-xl"
-                      >
-                        <div
-                          onClick={() => navigate(`/product/${product?.id}`)}
-                          className="relative h-48 overflow-hidden cursor-pointer"
-                        >
-                          <img
-                            src={product?.images?.[0] || "https://images.unsplash.com/photo-1441986300917-64674bd600d8?w=600&q=80"}
-                            alt={product?.name}
-                            className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300"
-                          />
-                          <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
-                          {product?.sizes && product?.sizes?.length > 0 && product?.sizes?.every(s => s?.stock === 0) && (
-                            <div className="absolute top-3 right-3 bg-destructive text-destructive-foreground px-2 py-1 rounded-full text-xs font-semibold">
-                              SIN STOCK
-                            </div>
-                          )}
-                        </div>
-                        <div className="p-4">
-                          <h4
-                            onClick={() => navigate(`/product/${product?.id}`)}
-                            className="font-semibold text-lg mb-2 group-hover:text-primary transition-colors cursor-pointer"
-                          >
-                            {product?.name}
-                          </h4>
-                          <p className="text-primary font-bold text-xl mb-2">${product?.price}</p>
-                          <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                            <Box className="h-4 w-4" />
-                            <span>
-                              Stock: {product?.sizes && product?.sizes?.length > 0
-                                ? product?.sizes?.reduce((total, size) => total + (size?.stock || 0), 0)
-                                : 'N/A'
-                              }
-                            </span>
-                          </div>
-                          {product?.description && (
-                            <p className="text-sm text-muted-foreground mt-2 line-clamp-2">
-                              {product?.description}
-                            </p>
-                          )}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <div className="text-center py-12 bg-card border border-card-border rounded-xl">
-                    <Package className="h-16 w-16 text-muted-foreground mx-auto mb-4" />
-                    <h4 className="font-semibold text-lg mb-2">No hay productos disponibles</h4>
-                    <p className="text-muted-foreground">Pronto agregaremos nuevos productos a esta categoría.</p>
-                  </div>
-                )}
-              </div>
-            );
-          })}
+        {/* Sticky Category Header */}
+        <div className="sticky top-16 z-40 bg-secondary/95 backdrop-blur-lg border-b border-border mb-8 rounded-lg">
+          <div className="flex items-center justify-center gap-2 md:gap-4 p-3 overflow-x-auto">
+            <button
+              onClick={() => setSelectedCategory(null)}
+              className={`px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap transition-all ${
+                selectedCategory === null
+                  ? 'bg-primary text-primary-foreground shadow-lg'
+                  : 'bg-muted text-muted-foreground hover:bg-muted/80'
+              }`}
+            >
+              Todos
+            </button>
+            {categories?.map((category) => (
+              <button
+                key={category?.id}
+                onClick={() => setSelectedCategory(category?.id)}
+                className={`px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap transition-all ${
+                  selectedCategory === category?.id
+                    ? 'bg-primary text-primary-foreground shadow-lg'
+                    : 'bg-muted text-muted-foreground hover:bg-muted/80'
+                }`}
+              >
+                {category?.name}
+              </button>
+            ))}
+          </div>
         </div>
+
+        {/* Products Grid */}
+        {filteredProducts?.length > 0 ? (
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-6">
+            {filteredProducts?.map((product) => (
+              <div
+                key={product?.id}
+                className="bg-card border border-card-border rounded-xl overflow-hidden group transform transition-all hover:scale-105 hover:shadow-xl"
+              >
+                <div
+                  onClick={() => navigate(`/product/${product?.id}`)}
+                  className="relative h-48 overflow-hidden cursor-pointer"
+                >
+                  <img
+                    src={product?.images?.[0] || "https://images.unsplash.com/photo-1441986300917-64674bd600d8?w=600&q=80"}
+                    alt={product?.name}
+                    className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300"
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+                  {product?.sizes && product?.sizes?.length > 0 && product?.sizes?.every(s => s?.stock === 0) && (
+                    <div className="absolute top-3 right-3 bg-destructive text-destructive-foreground px-2 py-1 rounded-full text-xs font-semibold">
+                      SIN STOCK
+                    </div>
+                  )}
+                </div>
+                <div className="p-4">
+                  <h4
+                    onClick={() => navigate(`/product/${product?.id}`)}
+                    className="font-semibold text-base md:text-lg mb-2 group-hover:text-primary transition-colors cursor-pointer line-clamp-1"
+                  >
+                    {product?.name}
+                  </h4>
+                  <p className="text-primary font-bold text-lg md:text-xl mb-2">${product?.price}</p>
+                  <div className="flex items-center gap-2 text-xs md:text-sm text-muted-foreground">
+                    <Box className="h-4 w-4" />
+                    <span>
+                      Stock: {product?.sizes && product?.sizes?.length > 0
+                        ? product?.sizes?.reduce((total, size) => total + (size?.stock || 0), 0)
+                        : 'N/A'
+                      }
+                    </span>
+                  </div>
+                  {product?.description && (
+                    <p className="text-xs md:text-sm text-muted-foreground mt-2 line-clamp-2">
+                      {product?.description}
+                    </p>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="text-center py-12 bg-card border border-card-border rounded-xl">
+            <Package className="h-16 w-16 text-muted-foreground mx-auto mb-4" />
+            <h4 className="font-semibold text-lg mb-2">No hay productos disponibles</h4>
+            <p className="text-muted-foreground">Pronto agregaremos nuevos productos.</p>
+          </div>
+        )}
       </div>
     </section>
   );
