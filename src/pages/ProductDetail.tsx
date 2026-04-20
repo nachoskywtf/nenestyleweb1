@@ -302,12 +302,12 @@ ${selectedSize ? `📏 *Talla:* ${selectedSize}` : ''}
               <span className="text-4xl font-bold text-primary">{formatCLP(product.price)}</span>
             </div>
 
-            {/* Size Selector */}
+            {/* Size Selector - Premium */}
             {product.sizes && product.sizes.length > 0 ? (
-              <div className="space-y-4">
+              <div className="space-y-6">
                 <div>
-                  <h3 className="font-semibold mb-4 text-lg">Talla</h3>
-                  <div className="grid grid-cols-4 gap-3">
+                  <h3 className="font-semibold mb-6 text-lg text-foreground">Talla</h3>
+                  <div className="grid grid-cols-4 gap-4">
                     {product.sizes.map((size) => (
                       <button
                         key={size.size}
@@ -316,12 +316,12 @@ ${selectedSize ? `📏 *Talla:* ${selectedSize}` : ''}
                           setQuantity(1);
                         }}
                         disabled={size.stock === 0}
-                        className={`py-3 px-4 rounded-lg font-semibold transition-all ${
+                        className={`py-4 px-6 rounded-lg font-semibold text-base transition-all duration-300 ${
                           selectedSize === size.size
-                            ? 'bg-black text-white'
+                            ? 'bg-[#FFD700] text-black scale-105 shadow-lg'
                             : size.stock === 0
-                            ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
-                            : 'bg-white border-2 border-gray-200 hover:border-black'
+                            ? 'bg-gray-100 text-gray-400 cursor-not-allowed opacity-50'
+                            : 'bg-white border-2 border-gray-200 text-foreground hover:scale-105 hover:border-gray-400 hover:shadow-md hover:-translate-y-1'
                         }`}
                       >
                         {size.size}
@@ -341,31 +341,34 @@ ${selectedSize ? `📏 *Talla:* ${selectedSize}` : ''}
               </div>
             ) : null}
 
-            {/* Quantity Selector */}
+            {/* Quantity Selector - Premium Stepper */}
             {(!product.sizes || product.sizes.length === 0 || selectedSize) && (
-              <div className="space-y-6">
-                <div className="flex items-center gap-4">
-                  <span className="font-semibold text-lg">Cantidad</span>
-                  <div className="flex items-center border-2 border-gray-200 rounded-lg">
+              <div className="space-y-8">
+                <div className="flex items-center gap-8">
+                  <span className="font-semibold text-lg text-foreground">Cantidad</span>
+                  <div className="flex items-center border-2 border-gray-200 rounded-lg overflow-hidden">
                     <button
                       onClick={() => handleQuantityChange(quantity - 1)}
-                      className="px-4 py-3 hover:bg-gray-100 transition-colors text-xl font-bold"
                       disabled={quantity <= 1}
+                      className={`px-6 py-4 text-xl font-bold transition-all duration-200 ${
+                        quantity <= 1
+                          ? 'bg-gray-100 text-gray-400 cursor-not-allowed opacity-50'
+                          : 'bg-white hover:bg-gray-100 hover:scale-105 active:scale-95'
+                      }`}
                     >
-                      -
+                      −
                     </button>
-                    <input
-                      type="number"
-                      value={quantity}
-                      onChange={(e) => handleQuantityChange(parseInt(e.target.value) || 1)}
-                      className="w-20 text-center border-x-2 border-gray-200 py-3 focus:outline-none text-black font-bold text-xl"
-                      min="1"
-                      max={getAvailableStock()}
-                    />
+                    <div className="w-16 text-center py-4 text-2xl font-bold text-black bg-white border-x-2 border-gray-200">
+                      {quantity}
+                    </div>
                     <button
                       onClick={() => handleQuantityChange(quantity + 1)}
-                      className="px-4 py-3 hover:bg-gray-100 transition-colors text-xl font-bold"
                       disabled={quantity >= getAvailableStock()}
+                      className={`px-6 py-4 text-xl font-bold transition-all duration-200 ${
+                        quantity >= getAvailableStock()
+                          ? 'bg-gray-100 text-gray-400 cursor-not-allowed opacity-50'
+                          : 'bg-white hover:bg-gray-100 hover:scale-105 active:scale-95'
+                      }`}
                     >
                       +
                     </button>
