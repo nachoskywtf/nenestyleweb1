@@ -346,19 +346,19 @@ ${selectedSize ? `📏 *Talla:* ${selectedSize}` : ''}
               <div className="space-y-8">
                 <div className="flex items-center gap-8">
                   <span className="font-semibold text-lg text-foreground">Cantidad</span>
-                  <div className="flex items-center border-2 border-gray-200 rounded-lg overflow-hidden">
+                  <div className="flex items-center border-2 border-[#FFD700] rounded-lg overflow-hidden">
                     <button
                       onClick={() => handleQuantityChange(quantity - 1)}
                       disabled={quantity <= 1}
                       className={`px-6 py-4 text-xl font-bold transition-all duration-200 ${
                         quantity <= 1
-                          ? 'bg-gray-100 text-gray-400 cursor-not-allowed opacity-50'
-                          : 'bg-white hover:bg-gray-100 hover:scale-105 active:scale-95'
+                          ? 'bg-white text-gray-400 cursor-not-allowed opacity-50'
+                          : 'bg-white text-black hover:bg-[#FFD700] hover:text-black hover:scale-105 active:scale-95'
                       }`}
                     >
                       −
                     </button>
-                    <div className="w-16 text-center py-4 text-2xl font-bold text-black bg-white border-x-2 border-gray-200">
+                    <div className="w-16 text-center py-4 text-2xl font-bold text-black bg-white border-x-2 border-[#FFD700]">
                       {quantity}
                     </div>
                     <button
@@ -366,8 +366,8 @@ ${selectedSize ? `📏 *Talla:* ${selectedSize}` : ''}
                       disabled={quantity >= getAvailableStock()}
                       className={`px-6 py-4 text-xl font-bold transition-all duration-200 ${
                         quantity >= getAvailableStock()
-                          ? 'bg-gray-100 text-gray-400 cursor-not-allowed opacity-50'
-                          : 'bg-white hover:bg-gray-100 hover:scale-105 active:scale-95'
+                          ? 'bg-white text-gray-400 cursor-not-allowed opacity-50'
+                          : 'bg-white text-black hover:bg-[#FFD700] hover:text-black hover:scale-105 active:scale-95'
                       }`}
                     >
                       +
